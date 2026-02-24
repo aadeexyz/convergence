@@ -2,13 +2,17 @@
 pragma solidity ^0.8.30;
 
 interface IMarketFactory {
+    enum State {
+        Creating,
+        Live
+    }
+
     event MarketCreated(address indexed market);
-
-    function createMarket() external returns (address);
-
-    function seedMarket() external;
+    event StateUpdated(State oldState, State newState);
 
     function collateralToken() external view returns (address);
+
+    function oracle() external view returns (address);
 
     function latestMarket() external view returns (address);
 
@@ -21,4 +25,6 @@ interface IMarketFactory {
     function symbol() external view returns (string memory);
 
     function decimals() external view returns (uint8);
+
+    function state() external view returns (State);
 }

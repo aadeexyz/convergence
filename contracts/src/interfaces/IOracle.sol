@@ -19,4 +19,6 @@ interface IOracle {
     function getLatestRound() external view returns (Round memory);
 
     function decimals() external view returns (uint8);
+
+    function keyword() external view returns (string memory);
 }

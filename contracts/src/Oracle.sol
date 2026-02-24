@@ -9,13 +9,15 @@ contract Oracle is IOracle, ReceiverTemplate {
     uint256[] private _rollingEMAWindow = new uint256[](30);
 
     uint8 public immutable decimals;
+    string public keyword;
 
     mapping(uint256 id_ => Round) private _rounds;
 
-    constructor(uint8 decimals_, address forwarderAddress_, address owner_)
+    constructor(uint8 decimals_, string memory keyword_, address forwarderAddress_, address owner_)
         ReceiverTemplate(forwarderAddress_, owner_)
     {
         decimals = decimals_;
+        keyword = keyword_;
     }
 
     function getRound(uint256 id) external view returns (Round memory) {

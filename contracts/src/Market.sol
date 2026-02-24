@@ -21,7 +21,6 @@ contract Market is IMarket, Ownable {
     uint256 private _amountInLongPosition;
     uint256 private _amountInShortPosition;
 
-    // todo: add seeding logic to prevent price manipulation at the beginning of the market
     constructor(address collateralToken_, string memory name_, string memory symbol_) {
         collateralToken = IERC20(collateralToken_);
 
@@ -34,6 +33,27 @@ contract Market is IMarket, Ownable {
         );
 
         _initializeOwner(msg.sender);
+    }
+
+    function seed(uint256 longCollateral_, uint256 shortCollateral_) external override onlyOwner {
+        if (_amountInLongPosition != 0 || _amountInShortPosition != 0) {
+            revert AlreadySeeded();
+        }
+
+        uint256 totalCollateral = longCollateral_ + shortCollateral_;
+        if (totalCollateral == 0) {
+            revert InsufficientCollateral();
+        }
+
+        address(collateralToken).safeTransferFrom(msg.sender, address(this), totalCollateral);
+
+        _amountInLongPosition = longCollateral_;
+        _amountInShortPosition = shortCollateral_;
+
+        longPositionToken.mint(msg.sender, totalCollateral);
+        shortPositionToken.mint(msg.sender, totalCollateral);
+
+        emit MarketSeeded(msg.sender, longCollateral_, shortCollateral_, totalCollateral);
     }
 
     function mint(bool isLong_, uint256 collateralAmount_) external override {

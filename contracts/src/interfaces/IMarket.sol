@@ -9,8 +9,11 @@ interface IMarket {
 
     error InsufficientPositionTokens();
 
+    error AlreadySeeded();
+
     event PositionMinted(address indexed account, bool indexed isLong, uint256 collateralAmount, uint256 positionTokenAmount);
     event PositionBurned(address indexed account, bool indexed isLong, uint256 positionTokenAmount, uint256 collateralAmount);
+    event MarketSeeded(address indexed seeder, uint256 longCollateral, uint256 shortCollateral, uint256 positionTokenAmount);
 
     function collateralToken() external view returns (IERC20);
 
@@ -21,6 +24,8 @@ interface IMarket {
     function price(bool isLong_) external view returns (uint256);
 
     function decimals() external view returns (uint8);
+
+    function seed(uint256 longCollateral_, uint256 shortCollateral_) external;
 
     function mint(bool isLong_, uint256 collateralAmount_) external;
 
