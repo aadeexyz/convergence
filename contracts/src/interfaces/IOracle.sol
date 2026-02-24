@@ -21,4 +21,6 @@ interface IOracle {
     function decimals() external view returns (uint8);
 
     function keyword() external view returns (string memory);
+
+    function submitRound(uint256 index_, uint256 ema_) external;
 }

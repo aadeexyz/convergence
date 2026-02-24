@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IMarket} from "src/interfaces/IMarket.sol";
+import {IOracle} from "src/interfaces/IOracle.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
@@ -14,6 +15,7 @@ contract Market is IMarket, Ownable {
     using SafeTransferLib for address;
 
     IERC20 public immutable collateralToken;
+    IOracle public immutable oracle;
 
     PositionToken public immutable longPositionToken;
     PositionToken public immutable shortPositionToken;
@@ -21,8 +23,12 @@ contract Market is IMarket, Ownable {
     uint256 private _amountInLongPosition;
     uint256 private _amountInShortPosition;
 
-    constructor(address collateralToken_, string memory name_, string memory symbol_) {
+    bool public settled;
+    uint256 public settlementRoundId;
+
+    constructor(address collateralToken_, address oracle_, string memory name_, string memory symbol_) {
         collateralToken = IERC20(collateralToken_);
+        oracle = IOracle(oracle_);
 
         uint8 collateralTokenDecimals = collateralToken.decimals();
         longPositionToken = new PositionToken(
@@ -56,7 +62,60 @@ contract Market is IMarket, Ownable {
         emit MarketSeeded(msg.sender, longCollateral_, shortCollateral_, totalCollateral);
     }
 
+    function settle(uint256 settlementRoundId_) external override onlyOwner {
+        if (settled) {
+            revert AlreadySettled();
+        }
+
+        settled = true;
+        settlementRoundId = settlementRoundId_;
+
+        emit MarketSettled(settlementRoundId_);
+    }
+
+    function redeem(bool isLong_) external override {
+        if (!settled) {
+            revert NotSettled();
+        }
+
+        uint256 d = collateralToken.decimals();
+        uint8 od = oracle.decimals();
+        IOracle.Round memory round = oracle.getRound(settlementRoundId);
+        uint256 index = round.index;
+
+        if (isLong_) {
+            uint256 positionTokenAmount = longPositionToken.balanceOf(msg.sender);
+            if (positionTokenAmount == 0) {
+                revert InsufficientPositionTokens();
+            }
+
+            uint256 redeemPrice = FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
+            uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
+
+            longPositionToken.burn(msg.sender, positionTokenAmount);
+            address(collateralToken).safeTransfer(msg.sender, collateralAmount);
+
+            emit PositionRedeemed(msg.sender, true, positionTokenAmount, collateralAmount);
+        } else {
+            uint256 positionTokenAmount = shortPositionToken.balanceOf(msg.sender);
+            if (positionTokenAmount == 0) {
+                revert InsufficientPositionTokens();
+            }
+
+            uint256 redeemPrice = 10 ** d - FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
+            uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
+
+            shortPositionToken.burn(msg.sender, positionTokenAmount);
+            address(collateralToken).safeTransfer(msg.sender, collateralAmount);
+
+            emit PositionRedeemed(msg.sender, false, positionTokenAmount, collateralAmount);
+        }
+    }
+
     function mint(bool isLong_, uint256 collateralAmount_) external override {
+        if (settled) {
+            revert AlreadySettled();
+        }
         if (collateralAmount_ == 0) {
             revert InsufficientCollateral();
         }
@@ -83,6 +142,9 @@ contract Market is IMarket, Ownable {
     }
 
     function burn(bool isLong_, uint256 positionTokenAmount_) external override {
+        if (settled) {
+            revert AlreadySettled();
+        }
         if (positionTokenAmount_ == 0) {
             revert InsufficientPositionTokens();
         }

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.30;
 
 import {IOracle} from "src/interfaces/IOracle.sol";
-import {ReceiverTemplate} from "src/keystone/ReceiverTemplate.sol";
+import {Ownable} from "solady/auth/Ownable.sol";
 
-contract Oracle is IOracle, ReceiverTemplate {
+contract Oracle is IOracle, Ownable {
     uint256 public currentRoundId;
     uint256[] private _rollingEMAWindow = new uint256[](30);
 
@@ -13,11 +13,10 @@ contract Oracle is IOracle, ReceiverTemplate {
 
     mapping(uint256 id_ => Round) private _rounds;
 
-    constructor(uint8 decimals_, string memory keyword_, address forwarderAddress_, address owner_)
-        ReceiverTemplate(forwarderAddress_, owner_)
-    {
+    constructor(uint8 decimals_, string memory keyword_, address owner_) {
         decimals = decimals_;
         keyword = keyword_;
+        _initializeOwner(owner_);
     }
 
     function getRound(uint256 id) external view returns (Round memory) {
@@ -32,12 +31,7 @@ contract Oracle is IOracle, ReceiverTemplate {
         return _rollingEMAWindow;
     }
 
-    function _processReport(bytes calldata report_) internal override {
-        (uint256 index, uint256 ema) = abi.decode(report_, (uint256, uint256));
-        _submitRound(index, ema);
-    }
-
-    function _submitRound(uint256 index_, uint256 ema_) private {
+    function submitRound(uint256 index_, uint256 ema_) external onlyOwner {
         _rollingEMAWindow[currentRoundId % 30] = ema_;
 
         currentRoundId++;

@@ -16,6 +16,14 @@ interface IFactoryOfMarketFactories {
 
     function setProtocolFee(uint256 protocolFee_) external;
 
+    function liquidityFee() external view returns (uint256);
+
+    function protocolFee() external view returns (uint256);
+
+    function forwarderAddress() external view returns (address);
+
+    function oracleDecimals() external view returns (uint8);
+
     function creationFee() external view returns (uint256);
 
     function collateralToken() external view returns (address);

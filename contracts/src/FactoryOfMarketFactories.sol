@@ -12,11 +12,11 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
     using LibString for string;
 
     address public immutable collateralToken;
-    uint256 private _liquidityFee;
-    uint256 private _protocolFee;
+    uint256 public liquidityFee;
+    uint256 public protocolFee;
 
-    address private _forwarderAddress;
-    uint8 private _oracleDecimals;
+    address public forwarderAddress;
+    uint8 public oracleDecimals;
 
     address[] private _marketFactories;
     mapping(string => address) private _marketFactoriesExists;
@@ -30,23 +30,23 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
         address owner_
     ) {
         collateralToken = collateralToken_;
-        _liquidityFee = liquidityFee_;
-        _protocolFee = protocolFee_;
-        _forwarderAddress = forwarderAddress_;
-        _oracleDecimals = oracleDecimals_;
+        liquidityFee = liquidityFee_;
+        protocolFee = protocolFee_;
+        forwarderAddress = forwarderAddress_;
+        oracleDecimals = oracleDecimals_;
 
         _initializeOwner(owner_);
     }
 
     function setLiquidityFee(uint256 liquidityFee_) external override onlyOwner {
-        uint256 oldFee = _liquidityFee;
-        _liquidityFee = liquidityFee_;
+        uint256 oldFee = liquidityFee;
+        liquidityFee = liquidityFee_;
         emit LiquidityFeeUpdated(oldFee, liquidityFee_);
     }
 
     function setProtocolFee(uint256 protocolFee_) external override onlyOwner {
-        uint256 oldFee = _protocolFee;
-        _protocolFee = protocolFee_;
+        uint256 oldFee = protocolFee;
+        protocolFee = protocolFee_;
         emit ProtocolFeeUpdated(oldFee, protocolFee_);
     }
 
@@ -65,13 +65,14 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
             revert MarketFactoryAlreadyExists(_marketFactoriesExists[name]);
         }
 
-        address marketFactory = address(new MarketFactory(collateralToken, _forwarderAddress, _oracleDecimals, name, symbol));
+        address marketFactory =
+            address(new MarketFactory(collateralToken, forwarderAddress, oracleDecimals, name, symbol));
 
         _marketFactories.push(marketFactory);
         _marketFactoriesExists[name] = marketFactory;
 
-        collateralToken.safeTransferFrom(msg.sender, marketFactory, _liquidityFee);
-        collateralToken.safeTransferFrom(msg.sender, owner(), _protocolFee);
+        collateralToken.safeTransferFrom(msg.sender, marketFactory, liquidityFee);
+        collateralToken.safeTransferFrom(msg.sender, owner(), protocolFee);
 
         emit MarketFactoryCreated(marketFactory, name, symbol);
 
@@ -79,7 +80,7 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
     }
 
     function creationFee() external view override returns (uint256) {
-        return _liquidityFee + _protocolFee;
+        return liquidityFee + protocolFee;
     }
 
     function totalMarketFactories() external view override returns (uint256) {
@@ -93,5 +94,4 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
     function marketFactory(uint256 index_) external view override returns (address) {
         return _marketFactories[index_];
     }
-
 }

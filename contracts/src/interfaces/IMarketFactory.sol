@@ -8,6 +8,7 @@ interface IMarketFactory {
     }
 
     event MarketCreated(address indexed market);
+    event MarketSeeded(address indexed market, uint256 longCollateral, uint256 shortCollateral);
     event StateUpdated(State oldState, State newState);
 
     function collateralToken() external view returns (address);
