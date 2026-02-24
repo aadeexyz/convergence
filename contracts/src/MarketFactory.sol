@@ -11,9 +11,18 @@ import {Oracle} from "src/Oracle.sol";
 import {Market} from "src/Market.sol";
 import {ReceiverTemplate} from "src/keystone/ReceiverTemplate.sol";
 
+/// @title MarketFactory
+/// @author @aadeexyz
+/// @notice Receives Chainlink CRE reports to create, seed, and settle attention markets
 contract MarketFactory is IMarketFactory, ReceiverTemplate {
+    /*//////////////////////////////////////////////////////////////
+                           TYPE DECLARATIONS
+    //////////////////////////////////////////////////////////////*/
     using SafeTransferLib for address;
 
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
     address public immutable collateralToken;
     address public immutable oracle;
 
@@ -24,6 +33,9 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
 
     State public state;
 
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
     constructor(
         address collateralToken_,
         address forwarderAddress_,
@@ -39,6 +51,11 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         oracle = address(new Oracle(oracleDecimals_, name_, address(this)));
     }
 
+    /*//////////////////////////////////////////////////////////////
+                             VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the most recently created market address
     function latestMarket() external view override returns (address) {
         if (markets.length == 0) {
             return address(0);
@@ -46,14 +63,22 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         return markets[markets.length - 1];
     }
 
+    /// @notice Returns the collateral token decimals
     function decimals() external view override returns (uint8) {
         return IERC20(collateralToken).decimals();
     }
 
+    /// @notice Returns the total number of markets created
     function totalMarkets() external view override returns (uint256) {
         return markets.length;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Processes a CRE report: updates oracle, settles old market, creates and seeds new market
+    /// @param report_ ABI-encoded (uint256 index, uint256 ema)
     function _processReport(bytes calldata report_) internal override {
         (uint256 index, uint256 ema) = abi.decode(report_, (uint256, uint256));
 
@@ -75,6 +100,7 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         }
     }
 
+    /// @notice Deploys a new Market contract
     function _createMarket() internal virtual returns (address) {
         address market = address(new Market(collateralToken, oracle, name, symbol));
         markets.push(market);
@@ -84,6 +110,11 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         return market;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Creates a new market and seeds it using the factory's collateral balance
     function _seedMarket() private {
         address market = _createMarket();
 

@@ -1,21 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
+/// @title IFactoryOfMarketFactories
+/// @author @aadeexyz
+/// @notice Interface for the factory that deploys and tracks MarketFactory instances
 interface IFactoryOfMarketFactories {
+    /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
     error InvalidName();
     error InvalidSymbol();
     error MarketFactoryAlreadyExists(address marketFactory);
 
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
     event MarketFactoryCreated(address indexed marketFactory, string name, string symbol);
     event LiquidityFeeUpdated(uint256 oldFee, uint256 newFee);
     event ProtocolFeeUpdated(uint256 oldFee, uint256 newFee);
 
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function createMarketFactory(string memory name_, string memory symbol_) external returns (address);
 
     function setLiquidityFee(uint256 liquidityFee_) external;
 
     function setProtocolFee(uint256 protocolFee_) external;
 
+    /*//////////////////////////////////////////////////////////////
+                             VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function liquidityFee() external view returns (uint256);
 
     function protocolFee() external view returns (uint256);

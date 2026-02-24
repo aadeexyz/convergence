@@ -4,13 +4,22 @@ pragma solidity ^0.8.30;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {PositionToken} from "src/PositionToken.sol";
 
+/// @title IMarket
+/// @author @aadeexyz
+/// @notice Interface for binary prediction markets with long/short positions
 interface IMarket {
+    /*//////////////////////////////////////////////////////////////
+                                 ERRORS
+    //////////////////////////////////////////////////////////////*/
     error InsufficientCollateral();
     error InsufficientPositionTokens();
     error AlreadySeeded();
     error AlreadySettled();
     error NotSettled();
 
+    /*//////////////////////////////////////////////////////////////
+                                 EVENTS
+    //////////////////////////////////////////////////////////////*/
     event PositionMinted(
         address indexed account, bool indexed isLong, uint256 collateralAmount, uint256 positionTokenAmount
     );
@@ -25,6 +34,9 @@ interface IMarket {
         address indexed account, bool indexed isLong, uint256 positionTokenAmount, uint256 collateralAmount
     );
 
+    /*//////////////////////////////////////////////////////////////
+                             VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function collateralToken() external view returns (IERC20);
 
     function longPositionToken() external view returns (PositionToken);
@@ -35,6 +47,13 @@ interface IMarket {
 
     function decimals() external view returns (uint8);
 
+    function settled() external view returns (bool);
+
+    function settlementRoundId() external view returns (uint256);
+
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function seed(uint256 longCollateral_, uint256 shortCollateral_) external;
 
     function mint(bool isLong_, uint256 collateralAmount_) external;
@@ -44,8 +63,4 @@ interface IMarket {
     function settle(uint256 settlementRoundId_) external;
 
     function redeem(bool isLong_) external;
-
-    function settled() external view returns (bool);
-
-    function settlementRoundId() external view returns (uint256);
 }

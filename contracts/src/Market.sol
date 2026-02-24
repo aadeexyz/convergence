@@ -9,11 +9,18 @@ import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {PositionToken} from "src/PositionToken.sol";
 
-// WAM - World Attention Market
-
+/// @title Market
+/// @author @aadeexyz
+/// @notice A binary prediction market backed by collateral tokens with long/short positions
 contract Market is IMarket, Ownable {
+    /*//////////////////////////////////////////////////////////////
+                           TYPE DECLARATIONS
+    //////////////////////////////////////////////////////////////*/
     using SafeTransferLib for address;
 
+    /*//////////////////////////////////////////////////////////////
+                            STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
     IERC20 public immutable collateralToken;
     IOracle public immutable oracle;
 
@@ -26,6 +33,9 @@ contract Market is IMarket, Ownable {
     bool public settled;
     uint256 public settlementRoundId;
 
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
     constructor(address collateralToken_, address oracle_, string memory name_, string memory symbol_) {
         collateralToken = IERC20(collateralToken_);
         oracle = IOracle(oracle_);
@@ -41,6 +51,13 @@ contract Market is IMarket, Ownable {
         _initializeOwner(msg.sender);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Seeds the market with initial collateral split between long and short
+    /// @param longCollateral_ Amount of collateral allocated to the long pool
+    /// @param shortCollateral_ Amount of collateral allocated to the short pool
     function seed(uint256 longCollateral_, uint256 shortCollateral_) external override onlyOwner {
         if (_amountInLongPosition != 0 || _amountInShortPosition != 0) {
             revert AlreadySeeded();
@@ -62,6 +79,8 @@ contract Market is IMarket, Ownable {
         emit MarketSeeded(msg.sender, longCollateral_, shortCollateral_, totalCollateral);
     }
 
+    /// @notice Settles the market at a specific oracle round
+    /// @param settlementRoundId_ The oracle round ID to settle at
     function settle(uint256 settlementRoundId_) external override onlyOwner {
         if (settled) {
             revert AlreadySettled();
@@ -73,6 +92,8 @@ contract Market is IMarket, Ownable {
         emit MarketSettled(settlementRoundId_);
     }
 
+    /// @notice Redeems position tokens for collateral after settlement
+    /// @param isLong_ Whether to redeem long (true) or short (false) position tokens
     function redeem(bool isLong_) external override {
         if (!settled) {
             revert NotSettled();
@@ -112,6 +133,9 @@ contract Market is IMarket, Ownable {
         }
     }
 
+    /// @notice Mints position tokens by depositing collateral
+    /// @param isLong_ Whether to mint long (true) or short (false) position tokens
+    /// @param collateralAmount_ Amount of collateral to deposit
     function mint(bool isLong_, uint256 collateralAmount_) external override {
         if (settled) {
             revert AlreadySettled();
@@ -141,6 +165,9 @@ contract Market is IMarket, Ownable {
         emit PositionMinted(msg.sender, isLong_, collateralAmount_, positionTokenAmount);
     }
 
+    /// @notice Burns position tokens and withdraws collateral
+    /// @param isLong_ Whether to burn long (true) or short (false) position tokens
+    /// @param positionTokenAmount_ Amount of position tokens to burn
     function burn(bool isLong_, uint256 positionTokenAmount_) external override {
         if (settled) {
             revert AlreadySettled();
@@ -170,10 +197,18 @@ contract Market is IMarket, Ownable {
         address(collateralToken).safeTransfer(msg.sender, collateralAmount);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                             VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the collateral token decimals
     function decimals() external view override returns (uint8) {
         return collateralToken.decimals();
     }
 
+    /// @notice Returns the current price of a position token
+    /// @param isLong_ Whether to get the long (true) or short (false) price
+    /// @return The price in collateral token units
     function price(bool isLong_) public view override returns (uint256) {
         uint256 totalAmount = _amountInLongPosition + _amountInShortPosition;
         if (totalAmount == 0) {
