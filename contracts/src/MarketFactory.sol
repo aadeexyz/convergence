@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {IMarketFactory} from "src/interfaces/IMarketFactory.sol";
 import {IMarket} from "src/interfaces/IMarket.sol";
 import {IOracle} from "src/interfaces/IOracle.sol";
@@ -14,6 +15,7 @@ import {ReceiverTemplate} from "src/keystone/ReceiverTemplate.sol";
 /// @title MarketFactory
 /// @author @aadeexyz
 /// @notice Receives Chainlink CRE reports to create, seed, and settle attention markets
+/// @dev Deployed as a clone with immutable args: abi.encode(address collateralToken, uint8 oracleDecimals, string name, string symbol, address marketImpl, address oracleImpl, address positionTokenImpl)
 contract MarketFactory is IMarketFactory, ReceiverTemplate {
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
@@ -23,37 +25,58 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    address public immutable collateralToken;
-    address public immutable oracle;
+    address public oracle;
 
     address[] public markets;
-
-    string public name;
-    string public symbol;
 
     State public state;
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                              INITIALIZER
     //////////////////////////////////////////////////////////////*/
-    constructor(
-        address collateralToken_,
-        address forwarderAddress_,
-        uint8 oracleDecimals_,
-        string memory name_,
-        string memory symbol_
-    ) ReceiverTemplate(forwarderAddress_, msg.sender) {
-        collateralToken = collateralToken_;
-        name = name_;
-        symbol = symbol_;
+
+    /// @notice Initializes the clone: creates Oracle clone and sets up receiver
+    /// @param forwarderAddress_ The Chainlink forwarder address
+    /// @param owner_ The owner address
+    function initialize(address forwarderAddress_, address owner_) external {
+        _initializeReceiverTemplate(forwarderAddress_, owner_);
+
+        (address collateralToken_, uint8 oracleDecimals_, string memory name_,,,,) = _args();
+
+        address oracleClone = LibClone.clone(_oracleImpl(), abi.encode(oracleDecimals_, name_));
+        Oracle(oracleClone).initialize(address(this));
+        oracle = oracleClone;
+
         state = State.Creating;
 
-        oracle = address(new Oracle(oracleDecimals_, name_, address(this)));
+        // Approve collateral token for the first market seeding
+        uint256 balance = IERC20(collateralToken_).balanceOf(address(this));
+        if (balance > 0) {
+            collateralToken_.safeApprove(address(this), balance);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the collateral token address from immutable args
+    function collateralToken() external view override returns (address) {
+        (address collateralToken_,,,,,,) = _args();
+        return collateralToken_;
+    }
+
+    /// @notice Returns the market factory name from immutable args
+    function name() external view override returns (string memory) {
+        (,, string memory name_,,,,) = _args();
+        return name_;
+    }
+
+    /// @notice Returns the market factory symbol from immutable args
+    function symbol() external view override returns (string memory) {
+        (,,, string memory symbol_,,,) = _args();
+        return symbol_;
+    }
 
     /// @notice Returns the most recently created market address
     function latestMarket() external view override returns (address) {
@@ -65,7 +88,8 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
 
     /// @notice Returns the collateral token decimals
     function decimals() external view override returns (uint8) {
-        return IERC20(collateralToken).decimals();
+        (address collateralToken_,,,,,,) = _args();
+        return IERC20(collateralToken_).decimals();
     }
 
     /// @notice Returns the total number of markets created
@@ -100,14 +124,19 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         }
     }
 
-    /// @notice Deploys a new Market contract
+    /// @notice Deploys a new Market clone
     function _createMarket() internal virtual returns (address) {
-        address market = address(new Market(collateralToken, oracle, name, symbol));
-        markets.push(market);
+        (address collateralToken_,, string memory name_, string memory symbol_,,, address positionTokenImpl_) = _args();
 
-        emit MarketCreated(market);
+        address marketClone = LibClone.clone(
+            _marketImpl(), abi.encode(collateralToken_, oracle, name_, symbol_, positionTokenImpl_)
+        );
+        Market(marketClone).initialize(address(this));
 
-        return market;
+        markets.push(marketClone);
+        emit MarketCreated(marketClone);
+
+        return marketClone;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -120,15 +149,39 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
 
         IOracle.Round memory latestRound = IOracle(oracle).getLatestRound();
         uint256 index = latestRound.index;
-        uint8 oracleDecimals = IOracle(oracle).decimals();
+        uint8 oracleDecimals_ = IOracle(oracle).decimals();
 
-        uint256 collateral = IERC20(collateralToken).balanceOf(address(this));
-        uint256 longCollateral = FixedPointMathLib.mulDiv(collateral, index, 10 ** oracleDecimals);
+        (address collateralToken_,,,,,,) = _args();
+        uint256 collateral = IERC20(collateralToken_).balanceOf(address(this));
+        uint256 longCollateral = FixedPointMathLib.mulDiv(collateral, index, 10 ** oracleDecimals_);
         uint256 shortCollateral = collateral - longCollateral;
 
-        collateralToken.safeApprove(market, collateral);
+        collateralToken_.safeApprove(market, collateral);
         IMarket(market).seed(longCollateral, shortCollateral);
 
         emit MarketSeeded(market, longCollateral, shortCollateral);
+    }
+
+    /// @notice Returns the market implementation address from immutable args
+    function _marketImpl() private view returns (address) {
+        (,,,, address marketImpl_,,) = _args();
+        return marketImpl_;
+    }
+
+    /// @notice Returns the oracle implementation address from immutable args
+    function _oracleImpl() private view returns (address) {
+        (,,,,, address oracleImpl_,) = _args();
+        return oracleImpl_;
+    }
+
+    /// @notice Decodes the immutable args appended to this clone
+    function _args()
+        private
+        view
+        returns (address, uint8, string memory, string memory, address, address, address)
+    {
+        return abi.decode(
+            LibClone.argsOnClone(address(this)), (address, uint8, string, string, address, address, address)
+        );
     }
 }

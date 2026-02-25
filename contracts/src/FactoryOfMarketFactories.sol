@@ -3,13 +3,17 @@ pragma solidity ^0.8.30;
 
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {LibString} from "solady/utils/LibString.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {IFactoryOfMarketFactories} from "src/interfaces/IFactoryOfMarketFactories.sol";
 import {MarketFactory} from "src/MarketFactory.sol";
+import {Market} from "src/Market.sol";
+import {Oracle} from "src/Oracle.sol";
+import {PositionToken} from "src/PositionToken.sol";
 
 /// @title FactoryOfMarketFactories
 /// @author @aadeexyz
-/// @notice Factory contract that deploys and tracks MarketFactory instances
+/// @notice Factory contract that deploys implementation contracts once and clones MarketFactory instances
 contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
@@ -26,6 +30,11 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
 
     address public forwarderAddress;
     uint8 public oracleDecimals;
+
+    address public immutable marketFactoryImpl;
+    address public immutable marketImpl;
+    address public immutable oracleImpl;
+    address public immutable positionTokenImpl;
 
     address[] private _marketFactories;
     mapping(string => address) private _marketFactoriesExists;
@@ -46,6 +55,11 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
         protocolFee = protocolFee_;
         forwarderAddress = forwarderAddress_;
         oracleDecimals = oracleDecimals_;
+
+        marketFactoryImpl = address(new MarketFactory());
+        marketImpl = address(new Market());
+        oracleImpl = address(new Oracle());
+        positionTokenImpl = address(new PositionToken());
 
         _initializeOwner(owner_);
     }
@@ -70,10 +84,10 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
         emit ProtocolFeeUpdated(oldFee, protocolFee_);
     }
 
-    /// @notice Creates a new MarketFactory with the given name and symbol
+    /// @notice Creates a new MarketFactory clone with the given name and symbol
     /// @param name_ The name for the market factory (will be lowercased)
     /// @param symbol_ The symbol for the market factory (will be uppercased)
-    /// @return The address of the newly created MarketFactory
+    /// @return The address of the newly created MarketFactory clone
     function createMarketFactory(string memory name_, string memory symbol_) external override returns (address) {
         if (bytes(name_).length == 0) {
             revert InvalidName();
@@ -89,18 +103,22 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
             revert MarketFactoryAlreadyExists(_marketFactoriesExists[name]);
         }
 
-        address marketFactory =
-            address(new MarketFactory(collateralToken, forwarderAddress, oracleDecimals, name, symbol));
+        address mf = LibClone.clone(
+            marketFactoryImpl,
+            abi.encode(collateralToken, oracleDecimals, name, symbol, marketImpl, oracleImpl, positionTokenImpl)
+        );
 
-        _marketFactories.push(marketFactory);
-        _marketFactoriesExists[name] = marketFactory;
+        _marketFactories.push(mf);
+        _marketFactoriesExists[name] = mf;
 
-        collateralToken.safeTransferFrom(msg.sender, marketFactory, liquidityFee);
+        collateralToken.safeTransferFrom(msg.sender, mf, liquidityFee);
         collateralToken.safeTransferFrom(msg.sender, owner(), protocolFee);
 
-        emit MarketFactoryCreated(marketFactory, name, symbol);
+        MarketFactory(mf).initialize(forwarderAddress, address(this));
 
-        return marketFactory;
+        emit MarketFactoryCreated(mf, name, symbol);
+
+        return mf;
     }
 
     /*//////////////////////////////////////////////////////////////

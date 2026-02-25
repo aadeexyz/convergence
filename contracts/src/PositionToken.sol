@@ -3,46 +3,43 @@ pragma solidity ^0.8.30;
 
 import {ERC20} from "solady/tokens/ERC20.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 
 /// @title PositionToken
 /// @author @aadeexyz
 /// @notice ERC20 token representing a long or short position in an attention market
+/// @dev Deployed as a clone with immutable args: abi.encode(string name, string symbol, uint8 decimals)
 contract PositionToken is ERC20, Ownable {
     /*//////////////////////////////////////////////////////////////
-                            STATE VARIABLES
+                              INITIALIZER
     //////////////////////////////////////////////////////////////*/
-    string private _name;
-    string private _symbol;
-    uint8 private _decimals;
 
-    /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
-    constructor(string memory name_, string memory symbol_, uint8 decimals_) {
-        _name = name_;
-        _symbol = symbol_;
-        _decimals = decimals_;
-
-        _initializeOwner(msg.sender);
+    /// @notice Initializes the clone (can only be called once)
+    /// @param owner_ The owner of this position token (the Market contract)
+    function initialize(address owner_) external {
+        _initializeOwner(owner_);
     }
 
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the token name
+    /// @notice Returns the token name from immutable args
     function name() public view override returns (string memory) {
-        return _name;
+        (string memory name_,,) = _args();
+        return name_;
     }
 
-    /// @notice Returns the token symbol
+    /// @notice Returns the token symbol from immutable args
     function symbol() public view override returns (string memory) {
-        return _symbol;
+        (, string memory symbol_,) = _args();
+        return symbol_;
     }
 
-    /// @notice Returns the token decimals
+    /// @notice Returns the token decimals from immutable args
     function decimals() public view override returns (uint8) {
-        return _decimals;
+        (,, uint8 decimals_) = _args();
+        return decimals_;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -61,5 +58,14 @@ contract PositionToken is ERC20, Ownable {
     /// @param amount_ The amount of tokens to burn
     function burn(address from_, uint256 amount_) external onlyOwner {
         _burn(from_, amount_);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Decodes the immutable args appended to this clone
+    function _args() private view returns (string memory, string memory, uint8) {
+        return abi.decode(LibClone.argsOnClone(address(this)), (string, string, uint8));
     }
 }

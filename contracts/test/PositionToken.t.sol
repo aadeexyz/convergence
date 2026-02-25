@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {PositionToken} from "src/PositionToken.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
 contract PositionTokenTest is Test {
@@ -12,7 +13,10 @@ contract PositionTokenTest is Test {
     address public nonOwner = address(0xBEEF);
 
     function setUp() public {
-        token = new PositionToken("Long Bitcoin", "LBTC", 6);
+        PositionToken impl = new PositionToken();
+        address clone = LibClone.clone(address(impl), abi.encode("Long Bitcoin", "LBTC", uint8(6)));
+        token = PositionToken(clone);
+        token.initialize(owner);
     }
 
     function test_constructor_setsName() public view {

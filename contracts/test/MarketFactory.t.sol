@@ -8,6 +8,8 @@ import {IMarket} from "src/interfaces/IMarket.sol";
 import {IOracle} from "src/interfaces/IOracle.sol";
 import {Oracle} from "src/Oracle.sol";
 import {Market} from "src/Market.sol";
+import {PositionToken} from "src/PositionToken.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
 
 contract MarketFactoryTest is Test {
@@ -22,7 +24,26 @@ contract MarketFactoryTest is Test {
 
     function setUp() public {
         token = new MockERC20("USDC", "USDC", 6);
-        factory = new MarketFactory(address(token), forwarder, ORACLE_DECIMALS, "bitcoin", "BTC");
+
+        MarketFactory mfImpl = new MarketFactory();
+        Market marketImpl = new Market();
+        Oracle oracleImpl = new Oracle();
+        PositionToken ptImpl = new PositionToken();
+
+        address clone = LibClone.clone(
+            address(mfImpl),
+            abi.encode(
+                address(token),
+                ORACLE_DECIMALS,
+                "bitcoin",
+                "BTC",
+                address(marketImpl),
+                address(oracleImpl),
+                address(ptImpl)
+            )
+        );
+        factory = MarketFactory(clone);
+        factory.initialize(forwarder, deployer);
     }
 
     // ==================== Constructor ====================

@@ -7,6 +7,7 @@ import {IMarket} from "src/interfaces/IMarket.sol";
 import {Oracle} from "src/Oracle.sol";
 import {IOracle} from "src/interfaces/IOracle.sol";
 import {PositionToken} from "src/PositionToken.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {MockERC20} from "test/mocks/MockERC20.sol";
@@ -25,8 +26,20 @@ contract MarketTest is Test {
 
     function setUp() public {
         token = new MockERC20("USDC", "USDC", COLLATERAL_DECIMALS);
-        oracle = new Oracle(ORACLE_DECIMALS, "bitcoin", owner);
-        market = new Market(address(token), address(oracle), "bitcoin", "BTC");
+
+        Oracle oracleImpl = new Oracle();
+        address oracleClone = LibClone.clone(address(oracleImpl), abi.encode(ORACLE_DECIMALS, "bitcoin"));
+        oracle = Oracle(oracleClone);
+        oracle.initialize(owner);
+
+        PositionToken positionTokenImpl = new PositionToken();
+        Market marketImpl = new Market();
+        address marketClone = LibClone.clone(
+            address(marketImpl),
+            abi.encode(address(token), address(oracle), "bitcoin", "BTC", address(positionTokenImpl))
+        );
+        market = Market(marketClone);
+        market.initialize(owner);
 
         token.mint(owner, 100_000e6);
         token.mint(user, 100_000e6);

@@ -7,11 +7,13 @@ import {IOracle} from "src/interfaces/IOracle.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {PositionToken} from "src/PositionToken.sol";
 
 /// @title Market
 /// @author @aadeexyz
 /// @notice A binary prediction market backed by collateral tokens with long/short positions
+/// @dev Deployed as a clone with immutable args: abi.encode(address collateralToken, address oracle, string name, string symbol, address positionTokenImpl)
 contract Market is IMarket, Ownable {
     /*//////////////////////////////////////////////////////////////
                            TYPE DECLARATIONS
@@ -21,11 +23,8 @@ contract Market is IMarket, Ownable {
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    IERC20 public immutable collateralToken;
-    IOracle public immutable oracle;
-
-    PositionToken public immutable longPositionToken;
-    PositionToken public immutable shortPositionToken;
+    PositionToken public longPositionToken;
+    PositionToken public shortPositionToken;
 
     uint256 private _amountInLongPosition;
     uint256 private _amountInShortPosition;
@@ -34,21 +33,30 @@ contract Market is IMarket, Ownable {
     uint256 public settlementRoundId;
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                              INITIALIZER
     //////////////////////////////////////////////////////////////*/
-    constructor(address collateralToken_, address oracle_, string memory name_, string memory symbol_) {
-        collateralToken = IERC20(collateralToken_);
-        oracle = IOracle(oracle_);
 
-        uint8 collateralTokenDecimals = collateralToken.decimals();
-        longPositionToken = new PositionToken(
-            string(abi.encodePacked("Long ", name_)), string(abi.encodePacked("L", symbol_)), collateralTokenDecimals
-        );
-        shortPositionToken = new PositionToken(
-            string(abi.encodePacked("Short ", name_)), string(abi.encodePacked("S", symbol_)), collateralTokenDecimals
-        );
+    /// @notice Initializes the clone: creates position token clones and sets owner
+    /// @param owner_ The owner of this market (the MarketFactory contract)
+    function initialize(address owner_) external {
+        _initializeOwner(owner_);
 
-        _initializeOwner(msg.sender);
+        (address collateralToken_,, string memory name_, string memory symbol_, address positionTokenImpl_) = _args();
+        uint8 collateralTokenDecimals = IERC20(collateralToken_).decimals();
+
+        address longClone = LibClone.clone(
+            positionTokenImpl_,
+            abi.encode(string(abi.encodePacked("Long ", name_)), string(abi.encodePacked("L", symbol_)), collateralTokenDecimals)
+        );
+        PositionToken(longClone).initialize(address(this));
+        longPositionToken = PositionToken(longClone);
+
+        address shortClone = LibClone.clone(
+            positionTokenImpl_,
+            abi.encode(string(abi.encodePacked("Short ", name_)), string(abi.encodePacked("S", symbol_)), collateralTokenDecimals)
+        );
+        PositionToken(shortClone).initialize(address(this));
+        shortPositionToken = PositionToken(shortClone);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -68,7 +76,7 @@ contract Market is IMarket, Ownable {
             revert InsufficientCollateral();
         }
 
-        address(collateralToken).safeTransferFrom(msg.sender, address(this), totalCollateral);
+        _collateralToken().safeTransferFrom(msg.sender, address(this), totalCollateral);
 
         _amountInLongPosition = longCollateral_;
         _amountInShortPosition = shortCollateral_;
@@ -99,9 +107,11 @@ contract Market is IMarket, Ownable {
             revert NotSettled();
         }
 
-        uint256 d = collateralToken.decimals();
-        uint8 od = oracle.decimals();
-        IOracle.Round memory round = oracle.getRound(settlementRoundId);
+        IERC20 collateralToken_ = IERC20(_collateralToken());
+        IOracle oracle_ = IOracle(_oracle());
+        uint256 d = collateralToken_.decimals();
+        uint8 od = oracle_.decimals();
+        IOracle.Round memory round = oracle_.getRound(settlementRoundId);
         uint256 index = round.index;
 
         if (isLong_) {
@@ -114,7 +124,7 @@ contract Market is IMarket, Ownable {
             uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
 
             longPositionToken.burn(msg.sender, positionTokenAmount);
-            address(collateralToken).safeTransfer(msg.sender, collateralAmount);
+            _collateralToken().safeTransfer(msg.sender, collateralAmount);
 
             emit PositionRedeemed(msg.sender, true, positionTokenAmount, collateralAmount);
         } else {
@@ -127,7 +137,7 @@ contract Market is IMarket, Ownable {
             uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
 
             shortPositionToken.burn(msg.sender, positionTokenAmount);
-            address(collateralToken).safeTransfer(msg.sender, collateralAmount);
+            _collateralToken().safeTransfer(msg.sender, collateralAmount);
 
             emit PositionRedeemed(msg.sender, false, positionTokenAmount, collateralAmount);
         }
@@ -146,13 +156,13 @@ contract Market is IMarket, Ownable {
 
         uint256 positionTokenPrice = price(isLong_);
         uint256 positionTokenAmount =
-            FixedPointMathLib.mulDiv(collateralAmount_, 10 ** collateralToken.decimals(), positionTokenPrice);
+            FixedPointMathLib.mulDiv(collateralAmount_, 10 ** IERC20(_collateralToken()).decimals(), positionTokenPrice);
 
         if (positionTokenAmount == 0) {
             revert InsufficientPositionTokens();
         }
 
-        address(collateralToken).safeTransferFrom(msg.sender, address(this), collateralAmount_);
+        _collateralToken().safeTransferFrom(msg.sender, address(this), collateralAmount_);
 
         if (isLong_) {
             _amountInLongPosition += collateralAmount_;
@@ -178,7 +188,7 @@ contract Market is IMarket, Ownable {
 
         uint256 positionTokenPrice = price(isLong_);
         uint256 collateralAmount =
-            FixedPointMathLib.mulDiv(positionTokenAmount_, positionTokenPrice, 10 ** collateralToken.decimals());
+            FixedPointMathLib.mulDiv(positionTokenAmount_, positionTokenPrice, 10 ** IERC20(_collateralToken()).decimals());
 
         if (collateralAmount == 0) {
             revert InsufficientCollateral();
@@ -194,31 +204,63 @@ contract Market is IMarket, Ownable {
 
         emit PositionBurned(msg.sender, isLong_, positionTokenAmount_, collateralAmount);
 
-        address(collateralToken).safeTransfer(msg.sender, collateralAmount);
+        _collateralToken().safeTransfer(msg.sender, collateralAmount);
     }
 
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Returns the collateral token address from immutable args
+    function collateralToken() external view override returns (IERC20) {
+        return IERC20(_collateralToken());
+    }
+
+    /// @notice Returns the oracle address from immutable args
+    function oracle() external view returns (IOracle) {
+        return IOracle(_oracle());
+    }
+
     /// @notice Returns the collateral token decimals
     function decimals() external view override returns (uint8) {
-        return collateralToken.decimals();
+        return IERC20(_collateralToken()).decimals();
     }
 
     /// @notice Returns the current price of a position token
     /// @param isLong_ Whether to get the long (true) or short (false) price
     /// @return The price in collateral token units
     function price(bool isLong_) public view override returns (uint256) {
+        uint256 d = IERC20(_collateralToken()).decimals();
         uint256 totalAmount = _amountInLongPosition + _amountInShortPosition;
         if (totalAmount == 0) {
-            return (10 ** collateralToken.decimals()) / 2;
+            return (10 ** d) / 2;
         }
 
         if (isLong_) {
-            return FixedPointMathLib.mulDivUp(_amountInLongPosition, 10 ** collateralToken.decimals(), totalAmount);
+            return FixedPointMathLib.mulDivUp(_amountInLongPosition, 10 ** d, totalAmount);
         } else {
-            return FixedPointMathLib.mulDivUp(_amountInShortPosition, 10 ** collateralToken.decimals(), totalAmount);
+            return FixedPointMathLib.mulDivUp(_amountInShortPosition, 10 ** d, totalAmount);
         }
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the collateral token address from immutable args
+    function _collateralToken() private view returns (address) {
+        (address collateralToken_,,,,) = _args();
+        return collateralToken_;
+    }
+
+    /// @notice Returns the oracle address from immutable args
+    function _oracle() private view returns (address) {
+        (, address oracle_,,,) = _args();
+        return oracle_;
+    }
+
+    /// @notice Decodes the immutable args appended to this clone
+    function _args() private view returns (address, address, string memory, string memory, address) {
+        return abi.decode(LibClone.argsOnClone(address(this)), (address, address, string, string, address));
     }
 }

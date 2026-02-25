@@ -4,6 +4,7 @@ pragma solidity ^0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {Oracle} from "src/Oracle.sol";
 import {IOracle} from "src/interfaces/IOracle.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 
 contract OracleTest is Test {
@@ -12,7 +13,10 @@ contract OracleTest is Test {
     address public nonOwner = address(0xBEEF);
 
     function setUp() public {
-        oracle = new Oracle(8, "bitcoin", owner);
+        Oracle impl = new Oracle();
+        address clone = LibClone.clone(address(impl), abi.encode(uint8(8), "bitcoin"));
+        oracle = Oracle(clone);
+        oracle.initialize(owner);
     }
 
     function test_constructor_setsDecimals() public view {

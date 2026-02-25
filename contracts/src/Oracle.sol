@@ -3,34 +3,47 @@ pragma solidity ^0.8.30;
 
 import {IOracle} from "src/interfaces/IOracle.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
+import {LibClone} from "solady/utils/LibClone.sol";
 
 /// @title Oracle
 /// @author @aadeexyz
 /// @notice Stores attention index rounds and a rolling EMA window
+/// @dev Deployed as a clone with immutable args: abi.encode(uint8 decimals, string keyword)
 contract Oracle is IOracle, Ownable {
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     uint256 public currentRoundId;
-    uint256[] private _rollingEMAWindow = new uint256[](30);
-
-    uint8 public immutable decimals;
-    string public keyword;
+    uint256[] private _rollingEMAWindow;
 
     mapping(uint256 id_ => Round) private _rounds;
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                              INITIALIZER
     //////////////////////////////////////////////////////////////*/
-    constructor(uint8 decimals_, string memory keyword_, address owner_) {
-        decimals = decimals_;
-        keyword = keyword_;
+
+    /// @notice Initializes the clone (can only be called once)
+    /// @param owner_ The owner of this oracle (the MarketFactory contract)
+    function initialize(address owner_) external {
         _initializeOwner(owner_);
+        _rollingEMAWindow = new uint256[](30);
     }
 
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the oracle decimals from immutable args
+    function decimals() external view returns (uint8) {
+        (uint8 decimals_,) = _args();
+        return decimals_;
+    }
+
+    /// @notice Returns the keyword from immutable args
+    function keyword() external view returns (string memory) {
+        (, string memory keyword_) = _args();
+        return keyword_;
+    }
 
     /// @notice Returns the round data for a given round ID
     /// @param id The round ID to query
@@ -62,5 +75,14 @@ contract Oracle is IOracle, Ownable {
         _rounds[currentRoundId] = Round({id: currentRoundId, timestamp: block.timestamp, index: index_});
 
         emit AnswerSubmitted(currentRoundId, block.timestamp, index_, ema_);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Decodes the immutable args appended to this clone
+    function _args() private view returns (uint8, string memory) {
+        return abi.decode(LibClone.argsOnClone(address(this)), (uint8, string));
     }
 }
