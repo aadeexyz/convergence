@@ -44,18 +44,26 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 	scheduledTime := trigger.ScheduledExecutionTime.AsTime()
 	logger.Info("Cron trigger fired", "scheduledTime", scheduledTime)
 
-	// ── 1. Fetch API keys from secrets ──────────────────────────────
+	// ── 1. Fetch API keys from secrets (non-fatal for simulation) ───
+	var googleKey, twitterKey, serpKey string
+
 	googleSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "GOOGLE_API_KEY"}).Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get GOOGLE_API_KEY secret: %w", err)
+		logger.Warn("GOOGLE_API_KEY secret not found, API calls will use fallback", "error", err)
+	} else {
+		googleKey = googleSecret.Value
 	}
 	twitterSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "TWITTER_API_KEY"}).Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get TWITTER_API_KEY secret: %w", err)
+		logger.Warn("TWITTER_API_KEY secret not found, API calls will use fallback", "error", err)
+	} else {
+		twitterKey = twitterSecret.Value
 	}
 	serpSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "SERP_API_KEY"}).Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get SERP_API_KEY secret: %w", err)
+		logger.Warn("SERP_API_KEY secret not found, API calls will use fallback", "error", err)
+	} else {
+		serpKey = serpSecret.Value
 	}
 
 	// ── 2. Read on-chain state ──────────────────────────────────────
@@ -119,7 +127,7 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 		}
 
 		// Compute attention scores for this keyword
-		scores, err := GetAggregate(keyword, runtime, googleSecret.Value, twitterSecret.Value, serpSecret.Value)
+		scores, err := GetRawIndex(keyword, runtime, googleKey, twitterKey, serpKey)
 		if err != nil {
 			log.Error("Failed to compute attention scores, skipping", "error", err)
 			failed++
@@ -130,11 +138,11 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 			"youtubeScore", scores.YouTube,
 			"twitterScore", scores.Twitter,
 			"googleTrendsScore", scores.GoogleTrends,
-			"aggregate", scores.Aggregate,
+			"rawIndex", scores.RawIndex,
 		)
 
-		// Compute raw index → sigmoid → scale to 8 decimals
-		rawIndex := ComputeRawIndex(scores.GoogleTrends, scores.YouTube, scores.Twitter)
+		// Sigmoid → scale to 8 decimals
+		rawIndex := scores.RawIndex
 		normalized := Sigmoid(rawIndex)
 		scaledIndex := new(big.Int).SetUint64(uint64(normalized * scale))
 

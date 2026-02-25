@@ -8,14 +8,56 @@ import (
 	"cre-workflow/wam-workflow/sourcer"
 )
 
-type Scores struct {
-	YouTube      float64
-	Twitter      float64
-	GoogleTrends float64
-	Aggregate    float64
+type SourceResult struct {
+	Score float64
+	Ok    bool
 }
 
-func GetAggregate(keyword string, runtime cre.Runtime, googleAPIKey, twitterAPIKey, serpAPIKey string) (*Scores, error) {
+type AttentionResult struct {
+	YouTube      SourceResult
+	Twitter      SourceResult
+	GoogleTrends SourceResult
+	RawIndex     float64
+}
+
+// computeRawIndex re-weights available sources proportionally.
+// Base weights: G=0.30, Y=0.35, X=0.35 (Y and X each get half of 0.70).
+// If a source is unavailable, its weight is redistributed among the rest.
+func computeRawIndex(r *AttentionResult) float64 {
+	type entry struct {
+		weight float64
+		score  float64
+		ok     bool
+	}
+
+	entries := []entry{
+		{0.30, r.GoogleTrends.Score, r.GoogleTrends.Ok},
+		{0.35, r.YouTube.Score, r.YouTube.Ok},
+		{0.35, r.Twitter.Score, r.Twitter.Ok},
+	}
+
+	var totalWeight float64
+	for _, e := range entries {
+		if e.ok {
+			totalWeight += e.weight
+		}
+	}
+
+	if totalWeight == 0 {
+		return 0
+	}
+
+	var raw float64
+	for _, e := range entries {
+		if e.ok {
+			raw += (e.weight / totalWeight) * e.score
+		}
+	}
+
+	return 10 * raw
+}
+
+func GetRawIndex(keyword string, runtime cre.Runtime, googleAPIKey, twitterAPIKey, serpAPIKey string) (*AttentionResult, error) {
 	ytPromise := sourcer.GetYouTubeScore(&sourcer.YouTubeConfig{
 		APIKey:  googleAPIKey,
 		Keyword: keyword,
@@ -31,27 +73,41 @@ func GetAggregate(keyword string, runtime cre.Runtime, googleAPIKey, twitterAPIK
 		Keyword: keyword,
 	}, runtime)
 
+	logger := runtime.Logger()
+
+	var yt, tw, gt SourceResult
+
 	ytScore, err := ytPromise.Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute YouTube score: %w", err)
+		logger.Warn("YouTube fetch failed, excluding from index", "error", err)
+	} else {
+		yt = SourceResult{Score: ytScore, Ok: true}
 	}
 
 	twScore, err := twPromise.Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute Twitter score: %w", err)
+		logger.Warn("Twitter fetch failed, excluding from index", "error", err)
+	} else {
+		tw = SourceResult{Score: twScore, Ok: true}
 	}
 
 	gtScore, err := gtPromise.Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to compute Google Trends score: %w", err)
+		logger.Warn("Google Trends fetch failed, excluding from index", "error", err)
+	} else {
+		gt = SourceResult{Score: gtScore, Ok: true}
 	}
 
-	aggregate := (ytScore + twScore + gtScore) / 3.0
+	if !yt.Ok && !tw.Ok && !gt.Ok {
+		return nil, fmt.Errorf("all data sources failed")
+	}
 
-	return &Scores{
-		YouTube:      ytScore,
-		Twitter:      twScore,
-		GoogleTrends: gtScore,
-		Aggregate:    aggregate,
-	}, nil
+	r := &AttentionResult{
+		YouTube:      yt,
+		Twitter:      tw,
+		GoogleTrends: gt,
+	}
+	r.RawIndex = computeRawIndex(r)
+
+	return r, nil
 }

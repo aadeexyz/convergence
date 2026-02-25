@@ -8,13 +8,8 @@ import (
 
 const halfLife = 6.0
 const dt = 0.25
-const sigmoidMidpoint = 5.0
-const sigmoidScale = 2.0
-
-func ComputeRawIndex(g, y, x float64) float64 {
-	social := 0.50*y + 0.50*x
-	return 10 * (0.30*g + 0.70*social)
-}
+const sigmoidMidpoint = 50.0
+const sigmoidScale = 15.0
 
 func Sigmoid(x float64) float64 {
 	return 1 / (1 + math.Exp(-(x-sigmoidMidpoint)/sigmoidScale))

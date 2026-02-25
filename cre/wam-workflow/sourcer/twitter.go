@@ -16,7 +16,7 @@ import (
 const twitterBaseURL = "https://api.twitterapi.io/twitter/tweet/advanced_search"
 
 const intervalsPerDay = 96
-const maxPages = 5
+const maxPages = 2
 
 type TwitterConfig struct {
 	APIKey  string
@@ -42,7 +42,12 @@ func fetchTwitterData(config *TwitterConfig, logger *slog.Logger, sendRequester 
 	var totalPosts int64
 	cursor := ""
 
+	const pageDelay = 5 * time.Second
+
 	for page := 0; page < maxPages; page++ {
+		if page > 0 {
+			time.Sleep(pageDelay)
+		}
 		params := url.Values{}
 		params.Set("query", query)
 		params.Set("queryType", "Top")
