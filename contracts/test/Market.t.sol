@@ -28,7 +28,7 @@ contract MarketTest is Test {
         token = new MockERC20("USDC", "USDC", COLLATERAL_DECIMALS);
 
         Oracle oracleImpl = new Oracle();
-        address oracleClone = LibClone.clone(address(oracleImpl), abi.encode(ORACLE_DECIMALS, "bitcoin"));
+        address oracleClone = LibClone.clone(address(oracleImpl), abi.encode(ORACLE_DECIMALS, "baby punch"));
         oracle = Oracle(oracleClone);
         oracle.initialize(owner);
 
@@ -36,7 +36,7 @@ contract MarketTest is Test {
         Market marketImpl = new Market();
         address marketClone = LibClone.clone(
             address(marketImpl),
-            abi.encode(address(token), address(oracle), "bitcoin", "BTC", address(positionTokenImpl))
+            abi.encode(address(token), address(oracle), "baby punch", "PUNCH", address(positionTokenImpl))
         );
         market = Market(marketClone);
         market.initialize(owner);
@@ -62,13 +62,13 @@ contract MarketTest is Test {
     }
 
     function test_constructor_positionTokenNames() public view {
-        assertEq(market.longPositionToken().name(), "Long bitcoin");
-        assertEq(market.shortPositionToken().name(), "Short bitcoin");
+        assertEq(market.longPositionToken().name(), "Long baby punch");
+        assertEq(market.shortPositionToken().name(), "Short baby punch");
     }
 
     function test_constructor_positionTokenSymbols() public view {
-        assertEq(market.longPositionToken().symbol(), "LBTC");
-        assertEq(market.shortPositionToken().symbol(), "SBTC");
+        assertEq(market.longPositionToken().symbol(), "LPUNCH");
+        assertEq(market.shortPositionToken().symbol(), "SPUNCH");
     }
 
     function test_constructor_positionTokenDecimals() public view {

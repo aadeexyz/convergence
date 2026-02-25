@@ -14,17 +14,17 @@ contract PositionTokenTest is Test {
 
     function setUp() public {
         PositionToken impl = new PositionToken();
-        address clone = LibClone.clone(address(impl), abi.encode("Long Bitcoin", "LBTC", uint8(6)));
+        address clone = LibClone.clone(address(impl), abi.encode("Long Baby Punch", "LPUNCH", uint8(6)));
         token = PositionToken(clone);
         token.initialize(owner);
     }
 
     function test_constructor_setsName() public view {
-        assertEq(token.name(), "Long Bitcoin");
+        assertEq(token.name(), "Long Baby Punch");
     }
 
     function test_constructor_setsSymbol() public view {
-        assertEq(token.symbol(), "LBTC");
+        assertEq(token.symbol(), "LPUNCH");
     }
 
     function test_constructor_setsDecimals() public view {

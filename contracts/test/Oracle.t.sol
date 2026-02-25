@@ -14,7 +14,7 @@ contract OracleTest is Test {
 
     function setUp() public {
         Oracle impl = new Oracle();
-        address clone = LibClone.clone(address(impl), abi.encode(uint8(8), "bitcoin"));
+        address clone = LibClone.clone(address(impl), abi.encode(uint8(8), "baby punch"));
         oracle = Oracle(clone);
         oracle.initialize(owner);
     }
@@ -24,7 +24,7 @@ contract OracleTest is Test {
     }
 
     function test_constructor_setsKeyword() public view {
-        assertEq(oracle.keyword(), "bitcoin");
+        assertEq(oracle.keyword(), "baby punch");
     }
 
     function test_constructor_setsOwner() public view {

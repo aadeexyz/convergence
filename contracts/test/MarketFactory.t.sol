@@ -35,8 +35,8 @@ contract MarketFactoryTest is Test {
             abi.encode(
                 address(token),
                 ORACLE_DECIMALS,
-                "bitcoin",
-                "BTC",
+                "baby punch",
+                "PUNCH",
                 address(marketImpl),
                 address(oracleImpl),
                 address(ptImpl)
@@ -53,11 +53,11 @@ contract MarketFactoryTest is Test {
     }
 
     function test_constructor_setsName() public view {
-        assertEq(factory.name(), "bitcoin");
+        assertEq(factory.name(), "baby punch");
     }
 
     function test_constructor_setsSymbol() public view {
-        assertEq(factory.symbol(), "BTC");
+        assertEq(factory.symbol(), "PUNCH");
     }
 
     function test_constructor_startsInCreatingState() public view {
@@ -80,7 +80,7 @@ contract MarketFactoryTest is Test {
 
     function test_constructor_oracleHasCorrectKeyword() public view {
         Oracle oracle = Oracle(factory.oracle());
-        assertEq(oracle.keyword(), "bitcoin");
+        assertEq(oracle.keyword(), "baby punch");
     }
 
     function test_constructor_setsOwner() public view {

@@ -5,18 +5,19 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"math/big"
 
 	"cre-workflow/wam-workflow/fof"
 	"cre-workflow/wam-workflow/mf"
 
-	fomf "cre-workflow/contracts/evm/src/generated/factory_of_market_factories"
-
-	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm/bindings"
+	protos "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
+
+const oracleDecimals = 8
 
 type ExecutionResult struct {
 	Result string
@@ -25,84 +26,44 @@ type ExecutionResult struct {
 // Workflow configuration loaded from the config.json file
 type Config struct {
 	FoF      fof.FoFConfig `json:"fof"`
+	Schedule string        `json:"schedule"`
 	GasLimit uint64        `json:"gasLimit"`
 }
 
 // Workflow implementation with a list of capability triggers
 func InitWorkflow(config *Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[*Config], error) {
-	logTrigger, err := fof.NewMarketFactoryCreatedTrigger(&config.FoF)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MarketFactoryCreated trigger: %w", err)
-	}
-
-	// Cron trigger: settle all factories every 24 hours
-	cronTrigger := cron.Trigger(&cron.Config{Schedule: "0 0 * * *"})
+	cronTrigger := cron.Trigger(&cron.Config{Schedule: config.Schedule})
 
 	return cre.Workflow[*Config]{
-		cre.Handler(logTrigger, onMarketFactoryCreated),
-		cre.Handler(cronTrigger, onSettlementCron),
+		cre.Handler(cronTrigger, onCronTrigger),
 	}, nil
 }
 
-func onMarketFactoryCreated(config *Config, runtime cre.Runtime, payload *bindings.DecodedLog[fomf.MarketFactoryCreatedDecoded]) (*ExecutionResult, error) {
-	logger := runtime.Logger()
-
-	factoryAddress := payload.Data.MarketFactory
-	factoryName := payload.Data.Name
-	factorySymbol := payload.Data.Symbol
-
-	logger.Info("New market factory created",
-		"address", factoryAddress.Hex(),
-		"name", factoryName,
-		"symbol", factorySymbol,
-	)
-
-	// Read the collateral token address from FoF
-	collateralToken, err := fof.GetCollateralToken(&config.FoF, runtime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read collateral token: %w", err)
-	}
-	logger.Info("Collateral token", "address", collateralToken.Hex())
-
-	// Read the factory's collateral token balance
-	balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, factoryAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read factory balance: %w", err)
-	}
-	logger.Info("Factory collateral balance", "factory", factoryAddress.Hex(), "balance", balance.String())
-
-	if balance.Sign() == 0 {
-		return &ExecutionResult{
-			Result: fmt.Sprintf("Skipped: factory %s (%s) has zero collateral balance", factoryName, factoryAddress.Hex()),
-		}, nil
-	}
-
-	// Mock attention index: 0.5 = 50000000 (8 decimals)
-	index := big.NewInt(50_000_000)
-	ema := big.NewInt(50_000_000)
-
-	err = mf.SubmitAttentionIndex(runtime, config.FoF.ChainName, factoryAddress, index, ema, config.GasLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to submit attention index: %w", err)
-	}
-
-	return &ExecutionResult{
-		Result: fmt.Sprintf("Submitted index %s to factory %s (%s) with balance %s", index.String(), factoryName, factoryAddress.Hex(), balance.String()),
-	}, nil
-}
-
-func onSettlementCron(config *Config, runtime cre.Runtime, trigger *cron.Payload) (*ExecutionResult, error) {
+func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (*ExecutionResult, error) {
 	logger := runtime.Logger()
 	scheduledTime := trigger.ScheduledExecutionTime.AsTime()
-	logger.Info("Settlement cron fired", "scheduledTime", scheduledTime)
+	logger.Info("Cron trigger fired", "scheduledTime", scheduledTime)
 
-	// Read collateral token address
+	// ── 1. Fetch API keys from secrets ──────────────────────────────
+	googleSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "GOOGLE_API_KEY"}).Await()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GOOGLE_API_KEY secret: %w", err)
+	}
+	twitterSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "TWITTER_API_KEY"}).Await()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get TWITTER_API_KEY secret: %w", err)
+	}
+	serpSecret, err := runtime.GetSecret(&protos.SecretRequest{Id: "SERP_API_KEY"}).Await()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SERP_API_KEY secret: %w", err)
+	}
+
+	// ── 2. Read on-chain state ──────────────────────────────────────
 	collateralToken, err := fof.GetCollateralToken(&config.FoF, runtime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read collateral token: %w", err)
 	}
 
-	// Read all market factories
 	factories, err := fof.GetMarketFactories(&config.FoF, runtime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read market factories: %w", err)
@@ -112,12 +73,14 @@ func onSettlementCron(config *Config, runtime cre.Runtime, trigger *cron.Payload
 		return &ExecutionResult{Result: "No market factories found"}, nil
 	}
 
+	// ── 3. Process each factory with its own keyword ────────────────
 	var settled, skipped, failed int
+	scale := math.Pow(10, oracleDecimals)
 
 	for _, factoryAddr := range factories {
 		log := logger.With("factory", factoryAddr.Hex())
 
-		// Read factory's collateral balance
+		// Check collateral balance first (cheap read)
 		balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, factoryAddr)
 		if err != nil {
 			log.Error("Failed to read balance, skipping", "error", err)
@@ -131,24 +94,84 @@ func onSettlementCron(config *Config, runtime cre.Runtime, trigger *cron.Payload
 			continue
 		}
 
-		log.Info("Settling factory", "balance", balance.String())
+		// Read the factory's keyword (its name)
+		keyword, err := mf.GetFactoryName(runtime, config.FoF.ChainName, factoryAddr)
+		if err != nil {
+			log.Error("Failed to read factory name, skipping", "error", err)
+			failed++
+			continue
+		}
+		log = log.With("keyword", keyword)
 
-		// TODO: replace with real attention index from external data source
-		index := big.NewInt(50_000_000)
-		ema := big.NewInt(50_000_000)
+		// Read oracle address and rolling EMA window
+		oracleAddr, err := mf.GetOracleAddress(runtime, config.FoF.ChainName, factoryAddr)
+		if err != nil {
+			log.Error("Failed to read oracle address, skipping", "error", err)
+			failed++
+			continue
+		}
 
-		err = mf.SubmitAttentionIndex(runtime, config.FoF.ChainName, factoryAddr, index, ema, config.GasLimit)
+		emaWindow, err := mf.GetRollingEMAWindow(runtime, config.FoF.ChainName, oracleAddr)
+		if err != nil {
+			log.Error("Failed to read EMA window, skipping", "error", err)
+			failed++
+			continue
+		}
+
+		// Compute attention scores for this keyword
+		scores, err := GetAggregate(keyword, runtime, googleSecret.Value, twitterSecret.Value, serpSecret.Value)
+		if err != nil {
+			log.Error("Failed to compute attention scores, skipping", "error", err)
+			failed++
+			continue
+		}
+
+		log.Info("Attention scores computed",
+			"youtubeScore", scores.YouTube,
+			"twitterScore", scores.Twitter,
+			"googleTrendsScore", scores.GoogleTrends,
+			"aggregate", scores.Aggregate,
+		)
+
+		// Compute raw index → sigmoid → scale to 8 decimals
+		rawIndex := ComputeRawIndex(scores.GoogleTrends, scores.YouTube, scores.Twitter)
+		normalized := Sigmoid(rawIndex)
+		scaledIndex := new(big.Int).SetUint64(uint64(normalized * scale))
+
+		// Compute EMA using median of non-zero on-chain values as previous EMA
+		var scaledEMA *big.Int
+		medianEMA := MedianNonZero(emaWindow)
+		if medianEMA != nil {
+			// Convert on-chain median (8-decimal uint256) back to float for EMA calc
+			prevEMAFloat := float64(medianEMA.Uint64()) / scale
+			emaFloat := EMA(normalized, &prevEMAFloat)
+			scaledEMA = new(big.Int).SetUint64(uint64(emaFloat * scale))
+		} else {
+			// No previous data — seed EMA with current index
+			scaledEMA = new(big.Int).Set(scaledIndex)
+		}
+
+		log.Info("Index computed",
+			"rawIndex", rawIndex,
+			"sigmoid", normalized,
+			"scaledIndex", scaledIndex.String(),
+			"scaledEMA", scaledEMA.String(),
+			"medianPrevEMA", medianEMA,
+		)
+
+		// Submit to chain
+		err = mf.SubmitAttentionIndex(runtime, config.FoF.ChainName, factoryAddr, scaledIndex, scaledEMA, config.GasLimit)
 		if err != nil {
 			log.Error("Failed to submit index, skipping", "error", err)
 			failed++
 			continue
 		}
 
-		log.Info("Settlement submitted", "index", index.String())
+		log.Info("Index submitted successfully")
 		settled++
 	}
 
-	result := fmt.Sprintf("Settlement complete: %d settled, %d skipped (zero balance), %d failed out of %d factories",
+	result := fmt.Sprintf("%d settled, %d skipped, %d failed out of %d factories",
 		settled, skipped, failed, len(factories))
 	logger.Info(result)
 

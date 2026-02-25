@@ -98,35 +98,35 @@ contract FactoryOfMarketFactoriesTest is Test {
     }
 
     function test_createMarketFactory_createsFactory() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         assertTrue(factoryAddr != address(0));
     }
 
     function test_createMarketFactory_incrementsCount() public {
-        _createFactory("Bitcoin", "BTC");
+        _createFactory("Baby Punch", "PUNCH");
         assertEq(fof.totalMarketFactories(), 1);
     }
 
     function test_createMarketFactory_lowercasesName() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         MarketFactory mf = MarketFactory(factoryAddr);
-        assertEq(mf.name(), "bitcoin");
+        assertEq(mf.name(), "baby punch");
     }
 
     function test_createMarketFactory_uppercasesSymbol() public {
-        address factoryAddr = _createFactory("Bitcoin", "btc");
+        address factoryAddr = _createFactory("Baby Punch", "punch");
         MarketFactory mf = MarketFactory(factoryAddr);
-        assertEq(mf.symbol(), "BTC");
+        assertEq(mf.symbol(), "PUNCH");
     }
 
     function test_createMarketFactory_transfersLiquidityFee() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         assertEq(token.balanceOf(factoryAddr), LIQUIDITY_FEE);
     }
 
     function test_createMarketFactory_transfersProtocolFee() public {
         uint256 ownerBalanceBefore = token.balanceOf(owner);
-        _createFactory("Bitcoin", "BTC");
+        _createFactory("Baby Punch", "PUNCH");
         assertEq(token.balanceOf(owner), ownerBalanceBefore + PROTOCOL_FEE);
     }
 
@@ -135,42 +135,42 @@ contract FactoryOfMarketFactoriesTest is Test {
         token.approve(address(fof), LIQUIDITY_FEE + PROTOCOL_FEE);
 
         vm.expectEmit(false, false, false, true);
-        emit IFactoryOfMarketFactories.MarketFactoryCreated(address(0), "bitcoin", "BTC");
+        emit IFactoryOfMarketFactories.MarketFactoryCreated(address(0), "baby punch", "PUNCH");
 
-        fof.createMarketFactory("Bitcoin", "BTC");
+        fof.createMarketFactory("Baby Punch", "PUNCH");
         vm.stopPrank();
     }
 
     function test_createMarketFactory_factoryStateIsCreating() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         MarketFactory mf = MarketFactory(factoryAddr);
         assertEq(uint256(mf.state()), uint256(IMarketFactory.State.Creating));
     }
 
     function test_createMarketFactory_factoryHasOracle() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         MarketFactory mf = MarketFactory(factoryAddr);
         assertTrue(mf.oracle() != address(0));
     }
 
     function test_createMarketFactory_oracleHasCorrectKeyword() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         MarketFactory mf = MarketFactory(factoryAddr);
         Oracle oracle = Oracle(mf.oracle());
-        assertEq(oracle.keyword(), "bitcoin");
+        assertEq(oracle.keyword(), "baby punch");
     }
 
     function test_createMarketFactory_factoryOwnerIsFOF() public {
-        address factoryAddr = _createFactory("Bitcoin", "BTC");
+        address factoryAddr = _createFactory("Baby Punch", "PUNCH");
         MarketFactory mf = MarketFactory(factoryAddr);
         assertEq(mf.owner(), address(fof));
     }
 
     function test_createMarketFactory_marketFactoriesArray() public {
-        address f1 = _createFactory("Bitcoin", "BTC");
+        address f1 = _createFactory("Baby Punch", "PUNCH");
 
         token.mint(user, 100_000e6);
-        address f2 = _createFactory("Ethereum", "ETH");
+        address f2 = _createFactory("Sock Rocket", "SOCK");
 
         address[] memory factories = fof.marketFactories();
         assertEq(factories.length, 2);
@@ -179,7 +179,7 @@ contract FactoryOfMarketFactoriesTest is Test {
     }
 
     function test_createMarketFactory_marketFactoryByIndex() public {
-        address f1 = _createFactory("Bitcoin", "BTC");
+        address f1 = _createFactory("Baby Punch", "PUNCH");
         assertEq(fof.marketFactory(0), f1);
     }
 
@@ -188,32 +188,32 @@ contract FactoryOfMarketFactoriesTest is Test {
     function test_createMarketFactory_revertsIfEmptyName() public {
         vm.prank(user);
         vm.expectRevert(IFactoryOfMarketFactories.InvalidName.selector);
-        fof.createMarketFactory("", "BTC");
+        fof.createMarketFactory("", "PUNCH");
     }
 
     function test_createMarketFactory_revertsIfEmptySymbol() public {
         vm.prank(user);
         vm.expectRevert(IFactoryOfMarketFactories.InvalidSymbol.selector);
-        fof.createMarketFactory("Bitcoin", "");
+        fof.createMarketFactory("Baby Punch", "");
     }
 
     function test_createMarketFactory_revertsIfAlreadyExists() public {
-        _createFactory("Bitcoin", "BTC");
+        _createFactory("Baby Punch", "PUNCH");
 
         vm.startPrank(user);
         token.approve(address(fof), LIQUIDITY_FEE + PROTOCOL_FEE);
         vm.expectRevert();
-        fof.createMarketFactory("Bitcoin", "BTC");
+        fof.createMarketFactory("Baby Punch", "PUNCH");
         vm.stopPrank();
     }
 
     function test_createMarketFactory_revertsIfAlreadyExistsCaseInsensitive() public {
-        _createFactory("Bitcoin", "BTC");
+        _createFactory("Baby Punch", "PUNCH");
 
         vm.startPrank(user);
         token.approve(address(fof), LIQUIDITY_FEE + PROTOCOL_FEE);
         vm.expectRevert();
-        fof.createMarketFactory("BITCOIN", "BTC");
+        fof.createMarketFactory("BABY PUNCH", "PUNCH");
         vm.stopPrank();
     }
 }
