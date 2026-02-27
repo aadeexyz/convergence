@@ -2,14 +2,16 @@
 pragma solidity ^0.8.30;
 
 import {IOracle} from "src/interfaces/IOracle.sol";
-import {Ownable} from "solady/auth/Ownable.sol";
 import {LibClone} from "solady/utils/LibClone.sol";
+import {ReceiverTemplate} from "src/keystone/ReceiverTemplate.sol";
 
 /// @title Oracle
 /// @author @aadeexyz
 /// @notice Stores attention index rounds and a rolling EMA window
 /// @dev Deployed as a clone with immutable args: abi.encode(uint8 decimals, string keyword)
-contract Oracle is IOracle, Ownable {
+contract Oracle is IOracle, ReceiverTemplate {
+    using LibClone for address;
+
     /*//////////////////////////////////////////////////////////////
                             STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -23,9 +25,10 @@ contract Oracle is IOracle, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the clone (can only be called once)
+    /// @param forwarderAddress_ The Chainlink forwarder address for direct CRE reports
     /// @param owner_ The owner of this oracle (the MarketFactory contract)
-    function initialize(address owner_) external {
-        _initializeOwner(owner_);
+    function initialize(address forwarderAddress_, address owner_) external {
+        _initializeReceiverTemplate(forwarderAddress_, owner_);
         _rollingEMAWindow = new uint256[](30);
     }
 
@@ -65,10 +68,32 @@ contract Oracle is IOracle, Ownable {
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Submits a new round with an attention index and EMA value
+    /// @notice Submits a new round via the owner (MarketFactory) during settlement
     /// @param index_ The attention index value (scaled to oracle decimals)
     /// @param ema_ The exponential moving average value
     function submitRound(uint256 index_, uint256 ema_) external onlyOwner {
+        _submitRound(index_, ema_);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Processes a CRE report: decodes and submits a new oracle round
+    /// @param report_ ABI-encoded (uint256 index, uint256 ema)
+    function _processReport(bytes calldata report_) internal override {
+        (uint256 index, uint256 ema) = abi.decode(report_, (uint256, uint256));
+        _submitRound(index, ema);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Internal round submission logic
+    /// @param index_ The attention index value
+    /// @param ema_ The exponential moving average value
+    function _submitRound(uint256 index_, uint256 ema_) private {
         _rollingEMAWindow[currentRoundId % 30] = ema_;
 
         currentRoundId++;
@@ -77,12 +102,8 @@ contract Oracle is IOracle, Ownable {
         emit AnswerSubmitted(currentRoundId, block.timestamp, index_, ema_);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            PRIVATE FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-
     /// @notice Decodes the immutable args appended to this clone
     function _args() private view returns (uint8, string memory) {
-        return abi.decode(LibClone.argsOnClone(address(this)), (uint8, string));
+        return abi.decode(address(this).argsOnClone(), (uint8, string));
     }
 }

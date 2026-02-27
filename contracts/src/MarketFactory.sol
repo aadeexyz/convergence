@@ -17,9 +17,7 @@ import {ReceiverTemplate} from "src/keystone/ReceiverTemplate.sol";
 /// @notice Receives Chainlink CRE reports to create, seed, and settle attention markets
 /// @dev Deployed as a clone with immutable args: abi.encode(address collateralToken, uint8 oracleDecimals, string name, string symbol, address marketImpl, address oracleImpl, address positionTokenImpl)
 contract MarketFactory is IMarketFactory, ReceiverTemplate {
-    /*//////////////////////////////////////////////////////////////
-                           TYPE DECLARATIONS
-    //////////////////////////////////////////////////////////////*/
+    using LibClone for address;
     using SafeTransferLib for address;
 
     /*//////////////////////////////////////////////////////////////
@@ -43,8 +41,8 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
 
         (address collateralToken_, uint8 oracleDecimals_, string memory name_,,,,) = _args();
 
-        address oracleClone = LibClone.clone(_oracleImpl(), abi.encode(oracleDecimals_, name_));
-        Oracle(oracleClone).initialize(address(this));
+        address oracleClone = _oracleImpl().clone(abi.encode(oracleDecimals_, name_));
+        Oracle(oracleClone).initialize(forwarderAddress_, address(this));
         oracle = oracleClone;
 
         state = State.Creating;
@@ -128,8 +126,8 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
     function _createMarket() internal virtual returns (address) {
         (address collateralToken_,, string memory name_, string memory symbol_,,, address positionTokenImpl_) = _args();
 
-        address marketClone = LibClone.clone(
-            _marketImpl(), abi.encode(collateralToken_, oracle, name_, symbol_, positionTokenImpl_)
+        address marketClone = _marketImpl().clone(
+            abi.encode(collateralToken_, oracle, name_, symbol_, positionTokenImpl_)
         );
         Market(marketClone).initialize(address(this));
 
@@ -181,7 +179,7 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         returns (address, uint8, string memory, string memory, address, address, address)
     {
         return abi.decode(
-            LibClone.argsOnClone(address(this)), (address, uint8, string, string, address, address, address)
+            address(this).argsOnClone(), (address, uint8, string, string, address, address, address)
         );
     }
 }

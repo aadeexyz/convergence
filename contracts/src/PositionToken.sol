@@ -10,6 +10,8 @@ import {LibClone} from "solady/utils/LibClone.sol";
 /// @notice ERC20 token representing a long or short position in an attention market
 /// @dev Deployed as a clone with immutable args: abi.encode(string name, string symbol, uint8 decimals)
 contract PositionToken is ERC20, Ownable {
+    using LibClone for address;
+    
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
@@ -66,6 +68,6 @@ contract PositionToken is ERC20, Ownable {
 
     /// @notice Decodes the immutable args appended to this clone
     function _args() private view returns (string memory, string memory, uint8) {
-        return abi.decode(LibClone.argsOnClone(address(this)), (string, string, uint8));
+        return abi.decode(address(this).argsOnClone(), (string, string, uint8));
     }
 }

@@ -15,9 +15,7 @@ import {PositionToken} from "src/PositionToken.sol";
 /// @author @aadeexyz
 /// @notice Factory contract that deploys implementation contracts once and clones MarketFactory instances
 contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
-    /*//////////////////////////////////////////////////////////////
-                           TYPE DECLARATIONS
-    //////////////////////////////////////////////////////////////*/
+    using LibClone for address;
     using SafeTransferLib for address;
     using LibString for string;
 
@@ -103,8 +101,7 @@ contract FactoryOfMarketFactories is IFactoryOfMarketFactories, Ownable {
             revert MarketFactoryAlreadyExists(_marketFactoriesExists[name]);
         }
 
-        address mf = LibClone.clone(
-            marketFactoryImpl,
+        address mf = marketFactoryImpl.clone(
             abi.encode(collateralToken, oracleDecimals, name, symbol, marketImpl, oracleImpl, positionTokenImpl)
         );
 

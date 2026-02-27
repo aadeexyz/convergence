@@ -30,7 +30,7 @@ contract MarketTest is Test {
         Oracle oracleImpl = new Oracle();
         address oracleClone = LibClone.clone(address(oracleImpl), abi.encode(ORACLE_DECIMALS, "baby punch"));
         oracle = Oracle(oracleClone);
-        oracle.initialize(owner);
+        oracle.initialize(owner, owner);
 
         PositionToken positionTokenImpl = new PositionToken();
         Market marketImpl = new Market();

@@ -15,9 +15,7 @@ import {PositionToken} from "src/PositionToken.sol";
 /// @notice A binary prediction market backed by collateral tokens with long/short positions
 /// @dev Deployed as a clone with immutable args: abi.encode(address collateralToken, address oracle, string name, string symbol, address positionTokenImpl)
 contract Market is IMarket, Ownable {
-    /*//////////////////////////////////////////////////////////////
-                           TYPE DECLARATIONS
-    //////////////////////////////////////////////////////////////*/
+    using LibClone for address;
     using SafeTransferLib for address;
 
     /*//////////////////////////////////////////////////////////////
@@ -44,15 +42,13 @@ contract Market is IMarket, Ownable {
         (address collateralToken_,, string memory name_, string memory symbol_, address positionTokenImpl_) = _args();
         uint8 collateralTokenDecimals = IERC20(collateralToken_).decimals();
 
-        address longClone = LibClone.clone(
-            positionTokenImpl_,
+        address longClone = positionTokenImpl_.clone(
             abi.encode(string(abi.encodePacked("Long ", name_)), string(abi.encodePacked("L", symbol_)), collateralTokenDecimals)
         );
         PositionToken(longClone).initialize(address(this));
         longPositionToken = PositionToken(longClone);
 
-        address shortClone = LibClone.clone(
-            positionTokenImpl_,
+        address shortClone = positionTokenImpl_.clone(
             abi.encode(string(abi.encodePacked("Short ", name_)), string(abi.encodePacked("S", symbol_)), collateralTokenDecimals)
         );
         PositionToken(shortClone).initialize(address(this));
@@ -261,6 +257,6 @@ contract Market is IMarket, Ownable {
 
     /// @notice Decodes the immutable args appended to this clone
     function _args() private view returns (address, address, string memory, string memory, address) {
-        return abi.decode(LibClone.argsOnClone(address(this)), (address, address, string, string, address));
+        return abi.decode(address(this).argsOnClone(), (address, address, string, string, address));
     }
 }

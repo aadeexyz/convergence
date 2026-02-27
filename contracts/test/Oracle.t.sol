@@ -16,7 +16,7 @@ contract OracleTest is Test {
         Oracle impl = new Oracle();
         address clone = LibClone.clone(address(impl), abi.encode(uint8(8), "baby punch"));
         oracle = Oracle(clone);
-        oracle.initialize(owner);
+        oracle.initialize(owner, owner);
     }
 
     function test_constructor_setsDecimals() public view {
