@@ -66,6 +66,33 @@ func GetOracleAddress(
 	return oracleAddr, nil
 }
 
+func GetCurrentRoundId(
+	runtime cre.Runtime,
+	chainName string,
+	oracleAddress common.Address,
+) (*big.Int, error) {
+	chainSelector, err := evm.ChainSelectorFromName(chainName)
+	if err != nil {
+		return nil, fmt.Errorf("invalid chain name: %w", err)
+	}
+
+	evmClient := &evm.Client{
+		ChainSelector: chainSelector,
+	}
+
+	contract, err := oracleBinding.NewOracle(evmClient, oracleAddress, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Oracle binding: %w", err)
+	}
+
+	roundId, err := contract.CurrentRoundId(runtime, big.NewInt(-2)).Await()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read currentRoundId: %w", err)
+	}
+
+	return roundId, nil
+}
+
 func GetRollingEMAWindow(
 	runtime cre.Runtime,
 	chainName string,

@@ -3,6 +3,6 @@
     "contractAddress": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
     "chainName": "ethereum-mainnet-worldchain-1"
   },
-  "schedule": "0 0 * * *",
+  "schedule": "0 */8 * * *",
   "gasLimit": 1000000
 }
