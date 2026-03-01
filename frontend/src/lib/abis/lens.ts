@@ -1,0 +1,506 @@
+import type { Abi } from "viem";
+
+export const lensAbi: Abi = [
+    {
+        type: "function",
+        name: "getAllMarkets",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple[]",
+                internalType: "struct ILens.MarketView[]",
+                components: [
+                    {
+                        name: "market",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "shortPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "shortPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "totalLiquidity",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "decimals",
+                        type: "uint8",
+                        internalType: "uint8",
+                    },
+                    {
+                        name: "settled",
+                        type: "bool",
+                        internalType: "bool",
+                    },
+                    {
+                        name: "settlementRoundId",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getFactory",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple",
+                internalType: "struct ILens.FactoryView",
+                components: [
+                    {
+                        name: "name",
+                        type: "string",
+                        internalType: "string",
+                    },
+                    {
+                        name: "symbol",
+                        type: "string",
+                        internalType: "string",
+                    },
+                    {
+                        name: "oracle",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "collateralToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "decimals",
+                        type: "uint8",
+                        internalType: "uint8",
+                    },
+                    {
+                        name: "state",
+                        type: "uint8",
+                        internalType: "enum IMarketFactory.State",
+                    },
+                    {
+                        name: "totalMarkets",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "latestMarket",
+                        type: "address",
+                        internalType: "address",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getLatestMarket",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple",
+                internalType: "struct ILens.MarketView",
+                components: [
+                    {
+                        name: "market",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "shortPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "shortPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "totalLiquidity",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "decimals",
+                        type: "uint8",
+                        internalType: "uint8",
+                    },
+                    {
+                        name: "settled",
+                        type: "bool",
+                        internalType: "bool",
+                    },
+                    {
+                        name: "settlementRoundId",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getMarket",
+        inputs: [
+            {
+                name: "market_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple",
+                internalType: "struct ILens.MarketView",
+                components: [
+                    {
+                        name: "market",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "shortPositionToken",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "longPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "shortPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "totalLiquidity",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "decimals",
+                        type: "uint8",
+                        internalType: "uint8",
+                    },
+                    {
+                        name: "settled",
+                        type: "bool",
+                        internalType: "bool",
+                    },
+                    {
+                        name: "settlementRoundId",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getMarketPrice",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+            { name: "isLong_", type: "bool", internalType: "bool" },
+        ],
+        outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getOracle",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple",
+                internalType: "struct ILens.OracleView",
+                components: [
+                    {
+                        name: "currentRoundId",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "latestRound",
+                        type: "tuple",
+                        internalType: "struct IOracle.Round",
+                        components: [
+                            {
+                                name: "id",
+                                type: "uint256",
+                                internalType: "uint256",
+                            },
+                            {
+                                name: "timestamp",
+                                type: "uint256",
+                                internalType: "uint256",
+                            },
+                            {
+                                name: "index",
+                                type: "uint256",
+                                internalType: "uint256",
+                            },
+                        ],
+                    },
+                    {
+                        name: "decimals",
+                        type: "uint8",
+                        internalType: "uint8",
+                    },
+                    {
+                        name: "keyword",
+                        type: "string",
+                        internalType: "string",
+                    },
+                    {
+                        name: "rollingEMAWindow",
+                        type: "uint256[]",
+                        internalType: "uint256[]",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getOraclePrice",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "index",
+                type: "uint256",
+                internalType: "uint256",
+            },
+            {
+                name: "timestamp",
+                type: "uint256",
+                internalType: "uint256",
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getRedeemable",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+            {
+                name: "account_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple[]",
+                internalType: "struct ILens.RedeemablePosition[]",
+                components: [
+                    {
+                        name: "market",
+                        type: "address",
+                        internalType: "address",
+                    },
+                    {
+                        name: "marketIndex",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "isLong",
+                        type: "bool",
+                        internalType: "bool",
+                    },
+                    {
+                        name: "positionTokenBalance",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "redeemableCollateral",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getRedeemableForMarket",
+        inputs: [
+            {
+                name: "market_",
+                type: "address",
+                internalType: "address",
+            },
+            {
+                name: "account_",
+                type: "address",
+                internalType: "address",
+            },
+            { name: "isLong_", type: "bool", internalType: "bool" },
+        ],
+        outputs: [{ name: "", type: "uint256", internalType: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getAllRounds",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple[]",
+                internalType: "struct IOracle.Round[]",
+                components: [
+                    {
+                        name: "id",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "timestamp",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "index",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        name: "getMarkPriceHistory",
+        inputs: [
+            {
+                name: "factory_",
+                type: "address",
+                internalType: "address",
+            },
+            {
+                name: "count_",
+                type: "uint256",
+                internalType: "uint256",
+            },
+        ],
+        outputs: [
+            {
+                name: "",
+                type: "tuple[]",
+                internalType: "struct IMarket.PriceSnapshot[]",
+                components: [
+                    {
+                        name: "timestamp",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                    {
+                        name: "longPrice",
+                        type: "uint256",
+                        internalType: "uint256",
+                    },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+] as const satisfies Abi;

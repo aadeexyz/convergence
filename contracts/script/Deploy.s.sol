@@ -6,6 +6,8 @@ import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 import {FactoryOfMarketFactories} from "src/FactoryOfMarketFactories.sol";
+import {Router} from "src/Router.sol";
+import {Lens} from "src/Lens.sol";
 import {MockUSDC} from "src/mocks/MockUSDC.sol";
 
 contract DeployScript is Script {
@@ -25,6 +27,8 @@ contract DeployScript is Script {
 
     MockUSDC mockUSDC;
     FactoryOfMarketFactories factoryOfMarketFactories;
+    Router router;
+    Lens lens;
 
     function run() external {
         deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -47,6 +51,8 @@ contract DeployScript is Script {
         factoryOfMarketFactories = new FactoryOfMarketFactories(
             address(mockUSDC), liquidityFee, protocolFee, forwarderAddress, oracleDecimals, admin
         );
+        router = new Router();
+        lens = new Lens();
         vm.stopBroadcast();
 
         uint256 creationFee = factoryOfMarketFactories.creationFee();
@@ -66,5 +72,7 @@ contract DeployScript is Script {
         console.log("OracleDecimals:", oracleDecimals);
         console.log("FactoryOfMarketFactories:", address(factoryOfMarketFactories));
         console.log("TrumpMarketFactory:", trumpFactory);
+        console.log("Router:", address(router));
+        console.log("Lens:", address(lens));
     }
 }

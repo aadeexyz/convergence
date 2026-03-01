@@ -30,6 +30,8 @@ contract Market is IMarket, Ownable {
     bool public settled;
     uint256 public settlementRoundId;
 
+    IMarket.PriceSnapshot[] private _priceSnapshots;
+
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
@@ -81,6 +83,8 @@ contract Market is IMarket, Ownable {
         shortPositionToken.mint(msg.sender, totalCollateral);
 
         emit MarketSeeded(msg.sender, longCollateral_, shortCollateral_, totalCollateral);
+
+        _priceSnapshots.push(IMarket.PriceSnapshot({timestamp: block.timestamp, longPrice: price(true)}));
     }
 
     /// @notice Settles the market at a specific oracle round
@@ -98,7 +102,8 @@ contract Market is IMarket, Ownable {
 
     /// @notice Redeems position tokens for collateral after settlement
     /// @param isLong_ Whether to redeem long (true) or short (false) position tokens
-    function redeem(bool isLong_) external override {
+    /// @param recipient_ The address to receive the collateral
+    function redeem(bool isLong_, address recipient_) external override {
         if (!settled) {
             revert NotSettled();
         }
@@ -120,9 +125,9 @@ contract Market is IMarket, Ownable {
             uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
 
             longPositionToken.burn(msg.sender, positionTokenAmount);
-            _collateralToken().safeTransfer(msg.sender, collateralAmount);
+            _collateralToken().safeTransfer(recipient_, collateralAmount);
 
-            emit PositionRedeemed(msg.sender, true, positionTokenAmount, collateralAmount);
+            emit PositionRedeemed(recipient_, true, positionTokenAmount, collateralAmount);
         } else {
             uint256 positionTokenAmount = shortPositionToken.balanceOf(msg.sender);
             if (positionTokenAmount == 0) {
@@ -133,16 +138,17 @@ contract Market is IMarket, Ownable {
             uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
 
             shortPositionToken.burn(msg.sender, positionTokenAmount);
-            _collateralToken().safeTransfer(msg.sender, collateralAmount);
+            _collateralToken().safeTransfer(recipient_, collateralAmount);
 
-            emit PositionRedeemed(msg.sender, false, positionTokenAmount, collateralAmount);
+            emit PositionRedeemed(recipient_, false, positionTokenAmount, collateralAmount);
         }
     }
 
     /// @notice Mints position tokens by depositing collateral
     /// @param isLong_ Whether to mint long (true) or short (false) position tokens
     /// @param collateralAmount_ Amount of collateral to deposit
-    function mint(bool isLong_, uint256 collateralAmount_) external override {
+    /// @param recipient_ The address to receive the position tokens
+    function mint(bool isLong_, uint256 collateralAmount_, address recipient_) external override {
         if (settled) {
             revert AlreadySettled();
         }
@@ -162,19 +168,22 @@ contract Market is IMarket, Ownable {
 
         if (isLong_) {
             _amountInLongPosition += collateralAmount_;
-            longPositionToken.mint(msg.sender, positionTokenAmount);
+            longPositionToken.mint(recipient_, positionTokenAmount);
         } else {
             _amountInShortPosition += collateralAmount_;
-            shortPositionToken.mint(msg.sender, positionTokenAmount);
+            shortPositionToken.mint(recipient_, positionTokenAmount);
         }
 
-        emit PositionMinted(msg.sender, isLong_, collateralAmount_, positionTokenAmount);
+        emit PositionMinted(recipient_, isLong_, collateralAmount_, positionTokenAmount);
+
+        _priceSnapshots.push(IMarket.PriceSnapshot({timestamp: block.timestamp, longPrice: price(true)}));
     }
 
     /// @notice Burns position tokens and withdraws collateral
     /// @param isLong_ Whether to burn long (true) or short (false) position tokens
     /// @param positionTokenAmount_ Amount of position tokens to burn
-    function burn(bool isLong_, uint256 positionTokenAmount_) external override {
+    /// @param recipient_ The address to receive the collateral
+    function burn(bool isLong_, uint256 positionTokenAmount_, address recipient_) external override {
         if (settled) {
             revert AlreadySettled();
         }
@@ -198,9 +207,11 @@ contract Market is IMarket, Ownable {
             shortPositionToken.burn(msg.sender, positionTokenAmount_);
         }
 
-        emit PositionBurned(msg.sender, isLong_, positionTokenAmount_, collateralAmount);
+        emit PositionBurned(recipient_, isLong_, positionTokenAmount_, collateralAmount);
 
-        _collateralToken().safeTransfer(msg.sender, collateralAmount);
+        _collateralToken().safeTransfer(recipient_, collateralAmount);
+
+        _priceSnapshots.push(IMarket.PriceSnapshot({timestamp: block.timestamp, longPrice: price(true)}));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -237,6 +248,11 @@ contract Market is IMarket, Ownable {
         } else {
             return FixedPointMathLib.mulDivUp(_amountInShortPosition, 10 ** d, totalAmount);
         }
+    }
+
+    /// @notice Returns all price snapshots recorded after each trade
+    function priceSnapshots() external view override returns (IMarket.PriceSnapshot[] memory) {
+        return _priceSnapshots;
     }
 
     /*//////////////////////////////////////////////////////////////

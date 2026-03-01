@@ -109,8 +109,8 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         if (markets.length > 0) {
             address currentMarket = markets[markets.length - 1];
             IMarket(currentMarket).settle(IOracle(oracle).currentRoundId());
-            IMarket(currentMarket).redeem(true);
-            IMarket(currentMarket).redeem(false);
+            IMarket(currentMarket).redeem(true, address(this));
+            IMarket(currentMarket).redeem(false, address(this));
         }
 
         _seedMarket();

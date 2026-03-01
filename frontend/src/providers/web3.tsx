@@ -1,15 +1,15 @@
 "use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { base } from "viem/chains";
+import { baseSepolia } from "viem/chains";
 import { getDefaultConfig, ConnectKitProvider } from "connectkit";
 // import { useTheme } from "next-themes";
 
 const config = createConfig(
     getDefaultConfig({
-        chains: [base],
+        chains: [baseSepolia],
         transports: {
-            [base.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL!),
+            [baseSepolia.id]: http(process.env.NEXT_PUBLIC_BASE_RPC_URL!),
         },
         walletConnectProjectId:
             process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,

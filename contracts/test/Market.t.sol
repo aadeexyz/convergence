@@ -168,7 +168,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
 
         assertGt(market.longPositionToken().balanceOf(user), 0);
@@ -179,7 +179,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(false, 100e6);
+        market.mint(false, 100e6, user);
         vm.stopPrank();
 
         assertGt(market.shortPositionToken().balanceOf(user), 0);
@@ -192,7 +192,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
 
         assertEq(token.balanceOf(user), balanceBefore - 100e6);
@@ -210,7 +210,7 @@ contract MarketTest is Test {
         vm.expectEmit(true, true, false, true);
         emit IMarket.PositionMinted(user, true, 100e6, expectedTokens);
 
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
     }
 
@@ -218,7 +218,7 @@ contract MarketTest is Test {
         _seedMarket();
 
         vm.expectRevert(IMarket.InsufficientCollateral.selector);
-        market.mint(true, 0);
+        market.mint(true, 0, owner);
     }
 
     function test_mint_revertsIfSettled() public {
@@ -229,7 +229,7 @@ contract MarketTest is Test {
         vm.startPrank(user);
         token.approve(address(market), 100e6);
         vm.expectRevert(IMarket.AlreadySettled.selector);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
     }
 
@@ -240,7 +240,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 500e6);
-        market.mint(true, 500e6);
+        market.mint(true, 500e6, user);
         vm.stopPrank();
 
         uint256 longPriceAfter = market.price(true);
@@ -254,12 +254,12 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
 
         uint256 posTokens = market.longPositionToken().balanceOf(user);
         uint256 collateralBefore = token.balanceOf(user);
 
-        market.burn(true, posTokens);
+        market.burn(true, posTokens, user);
         vm.stopPrank();
 
         assertEq(market.longPositionToken().balanceOf(user), 0);
@@ -271,12 +271,12 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(false, 100e6);
+        market.mint(false, 100e6, user);
 
         uint256 posTokens = market.shortPositionToken().balanceOf(user);
         uint256 collateralBefore = token.balanceOf(user);
 
-        market.burn(false, posTokens);
+        market.burn(false, posTokens, user);
         vm.stopPrank();
 
         assertEq(market.shortPositionToken().balanceOf(user), 0);
@@ -288,7 +288,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
 
         uint256 posTokens = market.longPositionToken().balanceOf(user);
         uint256 posPrice = market.price(true);
@@ -297,7 +297,7 @@ contract MarketTest is Test {
         vm.expectEmit(true, true, false, true);
         emit IMarket.PositionBurned(user, true, posTokens, expectedCollateral);
 
-        market.burn(true, posTokens);
+        market.burn(true, posTokens, user);
         vm.stopPrank();
     }
 
@@ -305,7 +305,7 @@ contract MarketTest is Test {
         _seedMarket();
 
         vm.expectRevert(IMarket.InsufficientPositionTokens.selector);
-        market.burn(true, 0);
+        market.burn(true, 0, owner);
     }
 
     function test_burn_revertsIfSettled() public {
@@ -314,7 +314,7 @@ contract MarketTest is Test {
         market.settle(1);
 
         vm.expectRevert(IMarket.AlreadySettled.selector);
-        market.burn(true, 100e6);
+        market.burn(true, 100e6, owner);
     }
 
     // ==================== Settle ====================
@@ -364,7 +364,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
 
         oracle.submitRound(60000000, 50000000);
@@ -377,7 +377,7 @@ contract MarketTest is Test {
         uint256 expectedCollateral = FixedPointMathLib.mulDiv(userLongTokens, redeemPrice, 1e6);
 
         vm.prank(user);
-        market.redeem(true);
+        market.redeem(true, user);
 
         assertEq(market.longPositionToken().balanceOf(user), 0);
         assertEq(token.balanceOf(user), collateralBefore + expectedCollateral);
@@ -388,7 +388,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(false, 100e6);
+        market.mint(false, 100e6, user);
         vm.stopPrank();
 
         oracle.submitRound(60000000, 50000000);
@@ -401,7 +401,7 @@ contract MarketTest is Test {
         uint256 expectedCollateral = FixedPointMathLib.mulDiv(userShortTokens, redeemPrice, 1e6);
 
         vm.prank(user);
-        market.redeem(false);
+        market.redeem(false, user);
 
         assertEq(market.shortPositionToken().balanceOf(user), 0);
         assertEq(token.balanceOf(user), collateralBefore + expectedCollateral);
@@ -412,7 +412,7 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 100e6);
-        market.mint(true, 100e6);
+        market.mint(true, 100e6, user);
         vm.stopPrank();
 
         oracle.submitRound(70000000, 55000000);
@@ -425,7 +425,7 @@ contract MarketTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, false, true);
         emit IMarket.PositionRedeemed(user, true, userLongTokens, expectedCollateral);
-        market.redeem(true);
+        market.redeem(true, user);
     }
 
     function test_redeem_revertsIfNotSettled() public {
@@ -433,7 +433,7 @@ contract MarketTest is Test {
 
         vm.prank(user);
         vm.expectRevert(IMarket.NotSettled.selector);
-        market.redeem(true);
+        market.redeem(true, user);
     }
 
     function test_redeem_revertsIfNoPositionTokens() public {
@@ -443,7 +443,7 @@ contract MarketTest is Test {
 
         vm.prank(user);
         vm.expectRevert(IMarket.InsufficientPositionTokens.selector);
-        market.redeem(true);
+        market.redeem(true, user);
     }
 
     function test_redeem_seederGetsBackFullCollateral() public {
@@ -455,8 +455,8 @@ contract MarketTest is Test {
 
         uint256 collateralBefore = token.balanceOf(owner);
 
-        market.redeem(true);
-        market.redeem(false);
+        market.redeem(true, owner);
+        market.redeem(false, owner);
 
         uint256 collateralAfter = token.balanceOf(owner);
         assertApproxEqAbs(collateralAfter - collateralBefore, 1000e6, 2);
@@ -467,8 +467,8 @@ contract MarketTest is Test {
 
         vm.startPrank(user);
         token.approve(address(market), 200e6);
-        market.mint(true, 100e6);
-        market.mint(false, 100e6);
+        market.mint(true, 100e6, user);
+        market.mint(false, 100e6, user);
         vm.stopPrank();
 
         oracle.submitRound(50000000, 40000000);
@@ -484,8 +484,8 @@ contract MarketTest is Test {
         uint256 shortPayout = FixedPointMathLib.mulDiv(userShortTokens, shortRedeemPrice, 1e6);
 
         vm.startPrank(user);
-        market.redeem(true);
-        market.redeem(false);
+        market.redeem(true, user);
+        market.redeem(false, user);
         vm.stopPrank();
 
         uint256 totalRedeemed = token.balanceOf(user) - (100_000e6 - 200e6);
