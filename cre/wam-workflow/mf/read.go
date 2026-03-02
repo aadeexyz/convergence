@@ -39,6 +39,33 @@ func GetFactoryName(
 	return name, nil
 }
 
+func GetLatestMarket(
+	runtime cre.Runtime,
+	chainName string,
+	factoryAddress common.Address,
+) (common.Address, error) {
+	chainSelector, err := evm.ChainSelectorFromName(chainName)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("invalid chain name: %w", err)
+	}
+
+	evmClient := &evm.Client{
+		ChainSelector: chainSelector,
+	}
+
+	contract, err := mfBinding.NewMarketFactory(evmClient, factoryAddress, nil)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to create MarketFactory binding: %w", err)
+	}
+
+	marketAddr, err := contract.LatestMarket(runtime, big.NewInt(-2)).Await()
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to read latestMarket: %w", err)
+	}
+
+	return marketAddr, nil
+}
+
 func GetOracleAddress(
 	runtime cre.Runtime,
 	chainName string,

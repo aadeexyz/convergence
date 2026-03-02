@@ -57,15 +57,16 @@ func computeRawIndex(r *AttentionResult) float64 {
 	return 10 * raw
 }
 
-func GetRawIndex(keyword string, runtime cre.Runtime, googleAPIKey, twitterAPIKey, serpAPIKey string) (*AttentionResult, error) {
+func GetRawIndex(keyword string, runtime cre.Runtime, googleAPIKey, twitterAPIKey, serpAPIKey string, twitterPageDelaySec int) (*AttentionResult, error) {
 	ytPromise := sourcer.GetYouTubeScore(&sourcer.YouTubeConfig{
 		APIKey:  googleAPIKey,
 		Keyword: keyword,
 	}, runtime)
 
 	twPromise := sourcer.GetTwitterScore(&sourcer.TwitterConfig{
-		APIKey:  twitterAPIKey,
-		Keyword: keyword,
+		APIKey:       twitterAPIKey,
+		Keyword:      keyword,
+		PageDelaySec: twitterPageDelaySec,
 	}, runtime)
 
 	gtPromise := sourcer.GetGoogleTrendsScore(&sourcer.GoogleTrendsConfig{

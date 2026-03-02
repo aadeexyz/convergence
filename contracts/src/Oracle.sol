@@ -36,30 +36,29 @@ contract Oracle is IOracle, ReceiverTemplate {
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the oracle decimals from immutable args
+    /// @inheritdoc IOracle
     function decimals() external view returns (uint8) {
         (uint8 decimals_,) = _args();
         return decimals_;
     }
 
-    /// @notice Returns the keyword from immutable args
+    /// @inheritdoc IOracle
     function keyword() external view returns (string memory) {
         (, string memory keyword_) = _args();
         return keyword_;
     }
 
-    /// @notice Returns the round data for a given round ID
-    /// @param id The round ID to query
+    /// @inheritdoc IOracle
     function getRound(uint256 id) external view returns (Round memory) {
         return _rounds[id];
     }
 
-    /// @notice Returns the most recent round data
+    /// @inheritdoc IOracle
     function getLatestRound() external view returns (Round memory) {
         return _rounds[currentRoundId];
     }
 
-    /// @notice Returns the 30-element rolling EMA window
+    /// @inheritdoc IOracle
     function rollingEMAWindow() external view returns (uint256[] memory) {
         return _rollingEMAWindow;
     }
@@ -68,9 +67,7 @@ contract Oracle is IOracle, ReceiverTemplate {
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Submits a new round via the owner (MarketFactory) during settlement
-    /// @param index_ The attention index value (scaled to oracle decimals)
-    /// @param ema_ The exponential moving average value
+    /// @inheritdoc IOracle
     function submitRound(uint256 index_, uint256 ema_) external onlyOwner {
         _submitRound(index_, ema_);
     }

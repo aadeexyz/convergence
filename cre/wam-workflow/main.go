@@ -30,9 +30,10 @@ type ExecutionResult struct {
 
 // Workflow configuration loaded from the config.json file
 type Config struct {
-	FoF      fof.FoFConfig `json:"fof"`
-	Schedule string        `json:"schedule"`
-	GasLimit uint64        `json:"gasLimit"`
+	FoF                 fof.FoFConfig `json:"fof"`
+	Schedule            string        `json:"schedule"`
+	GasLimit            uint64        `json:"gasLimit"`
+	TwitterPageDelaySec int           `json:"twitterPageDelaySec"`
 }
 
 // Workflow implementation with a list of capability triggers
@@ -105,11 +106,22 @@ func processFactory(
 	log := runtime.Logger().With("factory", factoryAddr.Hex(), "settlement", settlement)
 	scale := math.Pow(10, oracleDecimals)
 
-	// Check collateral balance first (cheap read)
-	balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, factoryAddr)
+	// Check collateral balance: look at the latest market (where collateral lives during active trading)
+	latestMarket, err := mf.GetLatestMarket(runtime, config.FoF.ChainName, factoryAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read latest market: %w", err)
+	}
+
+	// Check factory balance first, then fall back to latest market balance
+	balanceAccount := factoryAddr
+	if latestMarket != (common.Address{}) {
+		balanceAccount = latestMarket
+	}
+	balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, balanceAccount)
 	if err != nil {
 		return "", fmt.Errorf("failed to read balance: %w", err)
 	}
+	log.Info("Balance check", "account", balanceAccount.Hex(), "balance", balance.String())
 	if balance.Sign() == 0 {
 		log.Info("Zero balance, skipping")
 		return "skipped", nil
@@ -134,7 +146,7 @@ func processFactory(
 	}
 
 	// Compute attention scores for this keyword
-	scores, err := GetRawIndex(keyword, runtime, googleKey, twitterKey, serpKey)
+	scores, err := GetRawIndex(keyword, runtime, googleKey, twitterKey, serpKey, config.TwitterPageDelaySec)
 	if err != nil {
 		return "", fmt.Errorf("failed to compute attention scores: %w", err)
 	}
@@ -212,6 +224,7 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 
 	// Settle at midnight UTC; oracle-only update otherwise
 	settlement := scheduledTime.UTC().Hour() == 0
+	settlement = true // testing only
 	logger.Info("Settlement check", "utcHour", scheduledTime.UTC().Hour(), "settlement", settlement)
 
 	var settled, updated, skipped, failed int

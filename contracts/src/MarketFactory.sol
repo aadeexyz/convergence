@@ -58,25 +58,25 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the collateral token address from immutable args
+    /// @inheritdoc IMarketFactory
     function collateralToken() external view override returns (address) {
         (address collateralToken_,,,,,,) = _args();
         return collateralToken_;
     }
 
-    /// @notice Returns the market factory name from immutable args
+    /// @inheritdoc IMarketFactory
     function name() external view override returns (string memory) {
         (,, string memory name_,,,,) = _args();
         return name_;
     }
 
-    /// @notice Returns the market factory symbol from immutable args
+    /// @inheritdoc IMarketFactory
     function symbol() external view override returns (string memory) {
         (,,, string memory symbol_,,,) = _args();
         return symbol_;
     }
 
-    /// @notice Returns the most recently created market address
+    /// @inheritdoc IMarketFactory
     function latestMarket() external view override returns (address) {
         if (markets.length == 0) {
             return address(0);
@@ -84,13 +84,13 @@ contract MarketFactory is IMarketFactory, ReceiverTemplate {
         return markets[markets.length - 1];
     }
 
-    /// @notice Returns the collateral token decimals
+    /// @inheritdoc IMarketFactory
     function decimals() external view override returns (uint8) {
         (address collateralToken_,,,,,,) = _args();
         return IERC20(collateralToken_).decimals();
     }
 
-    /// @notice Returns the total number of markets created
+    /// @inheritdoc IMarketFactory
     function totalMarkets() external view override returns (uint256) {
         return markets.length;
     }

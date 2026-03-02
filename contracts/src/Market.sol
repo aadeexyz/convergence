@@ -30,6 +30,9 @@ contract Market is IMarket, Ownable {
     bool public settled;
     uint256 public settlementRoundId;
 
+    uint256 private _settlementLongPool;
+    uint256 private _settlementShortPool;
+
     IMarket.PriceSnapshot[] private _priceSnapshots;
 
     /*//////////////////////////////////////////////////////////////
@@ -45,13 +48,21 @@ contract Market is IMarket, Ownable {
         uint8 collateralTokenDecimals = IERC20(collateralToken_).decimals();
 
         address longClone = positionTokenImpl_.clone(
-            abi.encode(string(abi.encodePacked("Long ", name_)), string(abi.encodePacked("L", symbol_)), collateralTokenDecimals)
+            abi.encode(
+                string(abi.encodePacked("Long ", name_)),
+                string(abi.encodePacked("L", symbol_)),
+                collateralTokenDecimals
+            )
         );
         PositionToken(longClone).initialize(address(this));
         longPositionToken = PositionToken(longClone);
 
         address shortClone = positionTokenImpl_.clone(
-            abi.encode(string(abi.encodePacked("Short ", name_)), string(abi.encodePacked("S", symbol_)), collateralTokenDecimals)
+            abi.encode(
+                string(abi.encodePacked("Short ", name_)),
+                string(abi.encodePacked("S", symbol_)),
+                collateralTokenDecimals
+            )
         );
         PositionToken(shortClone).initialize(address(this));
         shortPositionToken = PositionToken(shortClone);
@@ -61,9 +72,7 @@ contract Market is IMarket, Ownable {
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Seeds the market with initial collateral split between long and short
-    /// @param longCollateral_ Amount of collateral allocated to the long pool
-    /// @param shortCollateral_ Amount of collateral allocated to the short pool
+    /// @inheritdoc IMarket
     function seed(uint256 longCollateral_, uint256 shortCollateral_) external override onlyOwner {
         if (_amountInLongPosition != 0 || _amountInShortPosition != 0) {
             revert AlreadySeeded();
@@ -87,8 +96,7 @@ contract Market is IMarket, Ownable {
         _priceSnapshots.push(IMarket.PriceSnapshot({timestamp: block.timestamp, longPrice: price(true)}));
     }
 
-    /// @notice Settles the market at a specific oracle round
-    /// @param settlementRoundId_ The oracle round ID to settle at
+    /// @inheritdoc IMarket
     function settle(uint256 settlementRoundId_) external override onlyOwner {
         if (settled) {
             revert AlreadySettled();
@@ -97,23 +105,21 @@ contract Market is IMarket, Ownable {
         settled = true;
         settlementRoundId = settlementRoundId_;
 
+        // Snapshot pool allocations using oracle index so partial redemptions don't shift the other side
+        uint256 totalCollateral = IERC20(_collateralToken()).balanceOf(address(this));
+        uint8 decimals_ = IOracle(_oracle()).decimals();
+        uint256 index = IOracle(_oracle()).getRound(settlementRoundId_).index;
+        _settlementLongPool = FixedPointMathLib.mulDiv(totalCollateral, index, 10 ** decimals_);
+        _settlementShortPool = totalCollateral - _settlementLongPool;
+
         emit MarketSettled(settlementRoundId_);
     }
 
-    /// @notice Redeems position tokens for collateral after settlement
-    /// @param isLong_ Whether to redeem long (true) or short (false) position tokens
-    /// @param recipient_ The address to receive the collateral
+    /// @inheritdoc IMarket
     function redeem(bool isLong_, address recipient_) external override {
         if (!settled) {
             revert NotSettled();
         }
-
-        IERC20 collateralToken_ = IERC20(_collateralToken());
-        IOracle oracle_ = IOracle(_oracle());
-        uint256 d = collateralToken_.decimals();
-        uint8 od = oracle_.decimals();
-        IOracle.Round memory round = oracle_.getRound(settlementRoundId);
-        uint256 index = round.index;
 
         if (isLong_) {
             uint256 positionTokenAmount = longPositionToken.balanceOf(msg.sender);
@@ -121,9 +127,10 @@ contract Market is IMarket, Ownable {
                 revert InsufficientPositionTokens();
             }
 
-            uint256 redeemPrice = FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
-            uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
+            uint256 totalSupply = longPositionToken.totalSupply();
+            uint256 collateralAmount = FixedPointMathLib.mulDiv(_settlementLongPool, positionTokenAmount, totalSupply);
 
+            _settlementLongPool -= collateralAmount;
             longPositionToken.burn(msg.sender, positionTokenAmount);
             _collateralToken().safeTransfer(recipient_, collateralAmount);
 
@@ -134,9 +141,10 @@ contract Market is IMarket, Ownable {
                 revert InsufficientPositionTokens();
             }
 
-            uint256 redeemPrice = 10 ** d - FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
-            uint256 collateralAmount = FixedPointMathLib.mulDiv(positionTokenAmount, redeemPrice, 10 ** d);
+            uint256 totalSupply = shortPositionToken.totalSupply();
+            uint256 collateralAmount = FixedPointMathLib.mulDiv(_settlementShortPool, positionTokenAmount, totalSupply);
 
+            _settlementShortPool -= collateralAmount;
             shortPositionToken.burn(msg.sender, positionTokenAmount);
             _collateralToken().safeTransfer(recipient_, collateralAmount);
 
@@ -144,10 +152,7 @@ contract Market is IMarket, Ownable {
         }
     }
 
-    /// @notice Mints position tokens by depositing collateral
-    /// @param isLong_ Whether to mint long (true) or short (false) position tokens
-    /// @param collateralAmount_ Amount of collateral to deposit
-    /// @param recipient_ The address to receive the position tokens
+    /// @inheritdoc IMarket
     function mint(bool isLong_, uint256 collateralAmount_, address recipient_) external override {
         if (settled) {
             revert AlreadySettled();
@@ -157,8 +162,9 @@ contract Market is IMarket, Ownable {
         }
 
         uint256 positionTokenPrice = price(isLong_);
-        uint256 positionTokenAmount =
-            FixedPointMathLib.mulDiv(collateralAmount_, 10 ** IERC20(_collateralToken()).decimals(), positionTokenPrice);
+        uint256 positionTokenAmount = FixedPointMathLib.mulDiv(
+            collateralAmount_, 10 ** IERC20(_collateralToken()).decimals(), positionTokenPrice
+        );
 
         if (positionTokenAmount == 0) {
             revert InsufficientPositionTokens();
@@ -179,10 +185,7 @@ contract Market is IMarket, Ownable {
         _priceSnapshots.push(IMarket.PriceSnapshot({timestamp: block.timestamp, longPrice: price(true)}));
     }
 
-    /// @notice Burns position tokens and withdraws collateral
-    /// @param isLong_ Whether to burn long (true) or short (false) position tokens
-    /// @param positionTokenAmount_ Amount of position tokens to burn
-    /// @param recipient_ The address to receive the collateral
+    /// @inheritdoc IMarket
     function burn(bool isLong_, uint256 positionTokenAmount_, address recipient_) external override {
         if (settled) {
             revert AlreadySettled();
@@ -192,8 +195,9 @@ contract Market is IMarket, Ownable {
         }
 
         uint256 positionTokenPrice = price(isLong_);
-        uint256 collateralAmount =
-            FixedPointMathLib.mulDiv(positionTokenAmount_, positionTokenPrice, 10 ** IERC20(_collateralToken()).decimals());
+        uint256 collateralAmount = FixedPointMathLib.mulDiv(
+            positionTokenAmount_, positionTokenPrice, 10 ** IERC20(_collateralToken()).decimals()
+        );
 
         if (collateralAmount == 0) {
             revert InsufficientCollateral();
@@ -218,24 +222,22 @@ contract Market is IMarket, Ownable {
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the collateral token address from immutable args
+    /// @inheritdoc IMarket
     function collateralToken() external view override returns (IERC20) {
         return IERC20(_collateralToken());
     }
 
-    /// @notice Returns the oracle address from immutable args
+    /// @inheritdoc IMarket
     function oracle() external view returns (IOracle) {
         return IOracle(_oracle());
     }
 
-    /// @notice Returns the collateral token decimals
+    /// @inheritdoc IMarket
     function decimals() external view override returns (uint8) {
         return IERC20(_collateralToken()).decimals();
     }
 
-    /// @notice Returns the current price of a position token
-    /// @param isLong_ Whether to get the long (true) or short (false) price
-    /// @return The price in collateral token units
+    /// @inheritdoc IMarket
     function price(bool isLong_) public view override returns (uint256) {
         uint256 d = IERC20(_collateralToken()).decimals();
         uint256 totalAmount = _amountInLongPosition + _amountInShortPosition;
@@ -250,7 +252,17 @@ contract Market is IMarket, Ownable {
         }
     }
 
-    /// @notice Returns all price snapshots recorded after each trade
+    /// @inheritdoc IMarket
+    function settlementLongPool() external view override returns (uint256) {
+        return _settlementLongPool;
+    }
+
+    /// @inheritdoc IMarket
+    function settlementShortPool() external view override returns (uint256) {
+        return _settlementShortPool;
+    }
+
+    /// @inheritdoc IMarket
     function priceSnapshots() external view override returns (IMarket.PriceSnapshot[] memory) {
         return _priceSnapshots;
     }

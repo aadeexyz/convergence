@@ -20,6 +20,7 @@ import { useMarketFactory } from "@/hooks/use-market-factory";
 import { useLatestMarket } from "@/hooks/use-latest-market";
 import { useOracle } from "@/hooks/use-oracle";
 import { useSettlementCountdown } from "@/hooks/use-settlement-countdown";
+import { SettledMarkets } from "@/components/settled-markets";
 import { OracleHistoryChart } from "@/components/oracle-history-chart";
 import { erc20Abi, routerAbi } from "@/lib/abis";
 import { routerAddress } from "@/lib/metadata";
@@ -350,12 +351,13 @@ export function MarketDetailClientPage({ factoryAddress }: Props) {
                 </p>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    {/* Chart — left 2/3 */}
-                    <div className="lg:col-span-2">
+                    {/* Chart + settled markets — left 2/3 */}
+                    <div className="lg:col-span-2 space-y-4">
                         <OracleHistoryChart
                             factoryAddress={address}
                             oracleDecimals={oracle?.decimals ?? 8}
                         />
+                        <SettledMarkets factoryAddress={address} />
                     </div>
 
                     {/* Right column — trade + stats stacked */}
@@ -640,6 +642,7 @@ export function MarketDetailClientPage({ factoryAddress }: Props) {
                     </div>
                 </div>
             )}
+
         </main>
     );
 }

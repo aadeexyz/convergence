@@ -41,7 +41,7 @@ contract DeployScript is Script {
         deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
-        mockUSDC = new MockUSDC();
+        mockUSDC = new MockUSDC(1000 * 10 ** 6, deployer);
         vm.stopBroadcast();
 
         liquidityFee = liquidityFeeUnit * 10 ** mockUSDC.decimals();
@@ -61,6 +61,7 @@ contract DeployScript is Script {
         mockUSDC.mint(deployer, creationFee);
         address(mockUSDC).safeApprove(address(factoryOfMarketFactories), creationFee);
         address trumpFactory = factoryOfMarketFactories.createMarketFactory("Donald Trump", "TRUMP");
+        mockUSDC.transferOwnership(admin);
         vm.stopBroadcast();
 
         console.log("Deployer:", deployer);

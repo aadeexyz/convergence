@@ -19,8 +19,9 @@ const intervalsPerDay = 96
 const maxPages = 2
 
 type TwitterConfig struct {
-	APIKey  string
-	Keyword string
+	APIKey       string
+	Keyword      string
+	PageDelaySec int
 }
 
 type tweetSearchResponse struct {
@@ -42,7 +43,10 @@ func fetchTwitterData(config *TwitterConfig, logger *slog.Logger, sendRequester 
 	var totalPosts int64
 	cursor := ""
 
-	const pageDelay = 5 * time.Second
+	pageDelay := 5 * time.Second
+	if config.PageDelaySec > 0 {
+		pageDelay = time.Duration(config.PageDelaySec) * time.Second
+	}
 
 	for page := 0; page < maxPages; page++ {
 		if page > 0 {

@@ -4,5 +4,6 @@
     "chainName": "ethereum-testnet-sepolia-base-1"
   },
   "schedule": "*/30 * * * * *",
-  "gasLimit": 1000000
+  "gasLimit": 2000000,
+  "twitterPageDelaySec": 1
 }

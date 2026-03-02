@@ -243,27 +243,22 @@ contract Lens is ILens {
     }
 
     /// @notice Calculates the collateral amount redeemable for a given position token balance
+    /// @dev Uses the stored settlement pools from Market, matching Market.redeem exactly.
     function _calculateRedeemable(address market_, uint256 positionTokenBalance_, bool isLong_)
         private
         view
         returns (uint256)
     {
         IMarket m = IMarket(market_);
-        IERC20 collateralToken = m.collateralToken();
-        IOracle oracle = m.oracle();
 
-        uint256 d = collateralToken.decimals();
-        uint8 od = oracle.decimals();
-        IOracle.Round memory round = oracle.getRound(m.settlementRoundId());
-        uint256 index = round.index;
-
-        uint256 redeemPrice;
         if (isLong_) {
-            redeemPrice = FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
+            uint256 totalSupply = m.longPositionToken().totalSupply();
+            if (totalSupply == 0) return 0;
+            return FixedPointMathLib.mulDiv(m.settlementLongPool(), positionTokenBalance_, totalSupply);
         } else {
-            redeemPrice = 10 ** d - FixedPointMathLib.mulDiv(index, 10 ** d, 10 ** od);
+            uint256 totalSupply = m.shortPositionToken().totalSupply();
+            if (totalSupply == 0) return 0;
+            return FixedPointMathLib.mulDiv(m.settlementShortPool(), positionTokenBalance_, totalSupply);
         }
-
-        return FixedPointMathLib.mulDiv(positionTokenBalance_, redeemPrice, 10 ** d);
     }
 }

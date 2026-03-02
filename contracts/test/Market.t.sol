@@ -371,10 +371,11 @@ contract MarketTest is Test {
         market.settle(1);
 
         uint256 userLongTokens = market.longPositionToken().balanceOf(user);
+        uint256 longSupply = market.longPositionToken().totalSupply();
         uint256 collateralBefore = token.balanceOf(user);
 
-        uint256 redeemPrice = FixedPointMathLib.mulDiv(60000000, 1e6, 10 ** ORACLE_DECIMALS);
-        uint256 expectedCollateral = FixedPointMathLib.mulDiv(userLongTokens, redeemPrice, 1e6);
+        uint256 settlementLongPool = market.settlementLongPool();
+        uint256 expectedCollateral = FixedPointMathLib.mulDiv(settlementLongPool, userLongTokens, longSupply);
 
         vm.prank(user);
         market.redeem(true, user);
@@ -395,10 +396,11 @@ contract MarketTest is Test {
         market.settle(1);
 
         uint256 userShortTokens = market.shortPositionToken().balanceOf(user);
+        uint256 shortSupply = market.shortPositionToken().totalSupply();
         uint256 collateralBefore = token.balanceOf(user);
 
-        uint256 redeemPrice = 1e6 - FixedPointMathLib.mulDiv(60000000, 1e6, 10 ** ORACLE_DECIMALS);
-        uint256 expectedCollateral = FixedPointMathLib.mulDiv(userShortTokens, redeemPrice, 1e6);
+        uint256 settlementShortPool = market.settlementShortPool();
+        uint256 expectedCollateral = FixedPointMathLib.mulDiv(settlementShortPool, userShortTokens, shortSupply);
 
         vm.prank(user);
         market.redeem(false, user);
@@ -419,8 +421,9 @@ contract MarketTest is Test {
         market.settle(1);
 
         uint256 userLongTokens = market.longPositionToken().balanceOf(user);
-        uint256 redeemPrice = FixedPointMathLib.mulDiv(70000000, 1e6, 10 ** ORACLE_DECIMALS);
-        uint256 expectedCollateral = FixedPointMathLib.mulDiv(userLongTokens, redeemPrice, 1e6);
+        uint256 longSupply = market.longPositionToken().totalSupply();
+        uint256 settlementLongPool = market.settlementLongPool();
+        uint256 expectedCollateral = FixedPointMathLib.mulDiv(settlementLongPool, userLongTokens, longSupply);
 
         vm.prank(user);
         vm.expectEmit(true, true, false, true);
@@ -476,12 +479,11 @@ contract MarketTest is Test {
 
         uint256 userLongTokens = market.longPositionToken().balanceOf(user);
         uint256 userShortTokens = market.shortPositionToken().balanceOf(user);
+        uint256 longSupply = market.longPositionToken().totalSupply();
+        uint256 shortSupply = market.shortPositionToken().totalSupply();
 
-        uint256 longRedeemPrice = FixedPointMathLib.mulDiv(50000000, 1e6, 1e8);
-        uint256 shortRedeemPrice = 1e6 - longRedeemPrice;
-
-        uint256 longPayout = FixedPointMathLib.mulDiv(userLongTokens, longRedeemPrice, 1e6);
-        uint256 shortPayout = FixedPointMathLib.mulDiv(userShortTokens, shortRedeemPrice, 1e6);
+        uint256 longPayout = FixedPointMathLib.mulDiv(market.settlementLongPool(), userLongTokens, longSupply);
+        uint256 shortPayout = FixedPointMathLib.mulDiv(market.settlementShortPool(), userShortTokens, shortSupply);
 
         vm.startPrank(user);
         market.redeem(true, user);
