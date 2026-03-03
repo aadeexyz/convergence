@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
 import { useWriteContract, useTransactionReceipt, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -27,7 +26,7 @@ const mockUsdcMintAbi = [
     },
 ] as const;
 
-export function FaucetClientPage() {
+export function FaucetCard() {
     const { address, isConnected } = useAccount();
     const queryClient = useQueryClient();
 
@@ -76,33 +75,22 @@ export function FaucetClientPage() {
         mint.isPending || (mintReceipt.status === "pending" && !!mint.data);
 
     return (
-        <main className="space-y-4">
-            <div>
-                <Link
-                    href="/markets"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        <Card className="mx-auto max-w-sm ring-0 border border-foreground/10">
+            <CardHeader>
+                <CardTitle className="text-center">USDC Faucet</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <p className="text-sm text-center text-muted-foreground">
+                    Mint 100 USDC to your wallet for testing.
+                </p>
+                <Button
+                    className="w-full"
+                    disabled={!isConnected || isPending}
+                    onClick={handleMint}
                 >
-                    ← Back to markets
-                </Link>
-            </div>
-
-            <Card className="mx-auto max-w-sm ring-0 border border-foreground/10">
-                <CardHeader>
-                    <CardTitle className="text-center">USDC Faucet</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p className="text-sm text-center text-muted-foreground">
-                        Mint 100 USDC to your wallet for testing.
-                    </p>
-                    <Button
-                        className="w-full"
-                        disabled={!isConnected || isPending}
-                        onClick={handleMint}
-                    >
-                        {isPending ? <Spinner /> : "Mint 100 USDC"}
-                    </Button>
-                </CardContent>
-            </Card>
-        </main>
+                    {isPending ? <Spinner /> : "Mint 100 USDC"}
+                </Button>
+            </CardContent>
+        </Card>
     );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useWriteContract, useReadContract, useTransactionReceipt, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,7 +20,7 @@ const LIQUIDITY_COST = "10,000";
 const PROTOCOL_COST = "1,000";
 const CREATION_COST_PARSED = parseUnits("11000", 6);
 
-export function CreateMarketClientPage() {
+export function CreateMarketForm() {
     const router = useRouter();
     const { address: userAddress, isConnected } = useAccount();
     const queryClient = useQueryClient();
@@ -150,100 +149,89 @@ export function CreateMarketClientPage() {
         (createReceipt.status === "pending" && !!createFactory.data);
 
     return (
-        <main className="space-y-4">
-            <div>
-                <Link
-                    href="/markets"
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    ← Back to markets
-                </Link>
-            </div>
-
-            <Card className="mx-auto max-w-md ring-0 border border-foreground/10">
-                <CardHeader>
-                    <CardTitle>Create Market</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                    <div className="space-y-3">
-                        <div className="space-y-1.5">
-                            <label className="text-sm text-muted-foreground">
-                                Name
-                            </label>
-                            <Input
-                                placeholder="e.g. donald trump"
-                                value={name}
-                                onChange={(e) =>
-                                    setName(e.target.value.toLowerCase())
-                                }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Lowercase only. This is the search keyword for the attention index.
-                            </p>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-sm text-muted-foreground">
-                                Ticker
-                            </label>
-                            <Input
-                                placeholder="e.g. TRUMP"
-                                value={symbol}
-                                onChange={(e) =>
-                                    setSymbol(e.target.value.toUpperCase())
-                                }
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Uppercase only.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Liquidity</span>
-                            <span>${LIQUIDITY_COST}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Maintenance</span>
-                            <span>${PROTOCOL_COST}</span>
-                        </div>
-                        <div className="flex justify-between font-medium border-t border-foreground/10 pt-1.5">
-                            <span>Total</span>
-                            <span>${CREATION_COST}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Your balance</span>
-                        <span>${formattedBalance}</span>
-                    </div>
-
-                    {needsApproval ? (
-                        <Button
-                            className="w-full"
-                            disabled={!isConnected || isApproving}
-                            onClick={handleApprove}
-                        >
-                            {isApproving ? <Spinner /> : "Approve USDC"}
-                        </Button>
-                    ) : (
-                        <Button
-                            className="w-full"
-                            disabled={
-                                !isConnected ||
-                                !name ||
-                                !symbol ||
-                                isCreating ||
-                                (usdcBalance !== undefined && (usdcBalance as bigint) < CREATION_COST_PARSED)
+        <Card className="mx-auto max-w-md ring-0 border border-foreground/10">
+            <CardHeader>
+                <CardTitle>Create Market</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+                <div className="space-y-3">
+                    <div className="space-y-1.5">
+                        <label className="text-sm text-muted-foreground">
+                            Name
+                        </label>
+                        <Input
+                            placeholder="e.g. donald trump"
+                            value={name}
+                            onChange={(e) =>
+                                setName(e.target.value.toLowerCase())
                             }
-                            onClick={handleCreate}
-                        >
-                            {isCreating ? <Spinner /> : "Create Market"}
-                        </Button>
-                    )}
-                </CardContent>
-            </Card>
-        </main>
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Lowercase only. This is the search keyword for the attention index.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label className="text-sm text-muted-foreground">
+                            Ticker
+                        </label>
+                        <Input
+                            placeholder="e.g. TRUMP"
+                            value={symbol}
+                            onChange={(e) =>
+                                setSymbol(e.target.value.toUpperCase())
+                            }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Uppercase only.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="rounded-lg bg-muted p-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Liquidity</span>
+                        <span>${LIQUIDITY_COST}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Maintenance</span>
+                        <span>${PROTOCOL_COST}</span>
+                    </div>
+                    <div className="flex justify-between font-medium border-t border-foreground/10 pt-1.5">
+                        <span>Total</span>
+                        <span>${CREATION_COST}</span>
+                    </div>
+                </div>
+
+                <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Your balance</span>
+                    <span>${formattedBalance}</span>
+                </div>
+
+                {needsApproval ? (
+                    <Button
+                        className="w-full"
+                        disabled={!isConnected || isApproving}
+                        onClick={handleApprove}
+                    >
+                        {isApproving ? <Spinner /> : "Approve USDC"}
+                    </Button>
+                ) : (
+                    <Button
+                        className="w-full"
+                        disabled={
+                            !isConnected ||
+                            !name ||
+                            !symbol ||
+                            isCreating ||
+                            (usdcBalance !== undefined && (usdcBalance as bigint) < CREATION_COST_PARSED)
+                        }
+                        onClick={handleCreate}
+                    >
+                        {isCreating ? <Spinner /> : "Create Market"}
+                    </Button>
+                )}
+            </CardContent>
+        </Card>
     );
 }

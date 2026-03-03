@@ -71,7 +71,7 @@ export function SettledMarkets({ factoryAddress }: Props) {
     if (positions.length === 0) return null;
 
     return (
-        <Card>
+        <Card className="ring-0 border-none bg-muted/40">
             <CardContent className="pt-5">
                 <div className="mb-4">
                     <h2 className="text-lg font-semibold">Settled Markets</h2>

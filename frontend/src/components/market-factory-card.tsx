@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useMarketFactory } from "@/hooks/use-market-factory";
 import { useLatestMarket } from "@/hooks/use-latest-market";
@@ -15,30 +15,21 @@ type MarketFactoryCardProps = {
 export function MarketFactoryCard({
     marketFactoryAddress,
 }: MarketFactoryCardProps) {
-    const {
-        factory,
-        isLoading: isLoadingFactory,
-        isError: isErrorFactory,
-        error: errorFactory,
-    } = useMarketFactory(marketFactoryAddress);
-
-    const {
-        market,
-        isLoading: isLoadingMarket,
-        isError: isErrorMarket,
-        error: errorMarket,
-    } = useLatestMarket(marketFactoryAddress);
-
+    const { factory } = useMarketFactory(marketFactoryAddress);
+    const { market } = useLatestMarket(marketFactoryAddress);
     const countdown = useSettlementCountdown();
+
+    const longPrice = market ? Number(formatUnits(market.longPrice, 6)) : 0;
+    const longPct = Math.round(longPrice * 100);
 
     return (
         <Link href={`/markets/${marketFactoryAddress}`}>
             <Card
                 className={cn(
-                    "ring-0 border border-foreground/10",
+                    "ring-0 border-none bg-muted/40",
                     factory?.state === 0
-                        ? "border-dashed"
-                        : "border-solid transition-colors hover:border-foreground cursor-pointer",
+                        ? "opacity-60"
+                        : "transition-colors hover:bg-muted/70 cursor-pointer",
                 )}
             >
                 <CardHeader>
@@ -52,20 +43,20 @@ export function MarketFactoryCard({
                         <p className="animate-pulse">Should be live any moment</p>
                     ) : (
                         <div className="space-y-3">
-                            <Progress value={market ? Number(formatUnits(market.longPrice, 6)) * 100 : 0} max={100} />
+                            <Progress value={longPct} max={100} />
                             <div className="flex justify-between text-sm text-muted-foreground">
                                 <span>Long: {market ? Number(formatUnits(market.longPrice, 6)).toFixed(2) : "—"}</span>
                                 <span>Short: {market ? Number(formatUnits(market.shortPrice, 6)).toFixed(2) : "—"}</span>
                             </div>
                         </div>
                     )}
+                    {factory?.state === 1 && (
+                        <div className="flex justify-between text-sm text-muted-foreground pt-2">
+                            <span>Vol: ${market ? Number(formatUnits(market.totalLiquidity, 6)).toLocaleString() : "—"}</span>
+                            <span>Settles in {countdown}</span>
+                        </div>
+                    )}
                 </CardContent>
-                {factory?.state === 1 && (
-                    <CardFooter className="flex justify-between text-sm text-muted-foreground">
-                        <span>${market ? Number(formatUnits(market.totalLiquidity, 6)).toLocaleString() : "—"}</span>
-                        <span>Settles in {countdown}</span>
-                    </CardFooter>
-                )}
             </Card>
         </Link>
     );

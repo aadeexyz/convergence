@@ -55,12 +55,7 @@ contract DeployScript is Script {
         lens = new Lens();
         vm.stopBroadcast();
 
-        uint256 creationFee = factoryOfMarketFactories.creationFee();
-
         vm.startBroadcast(deployerPrivateKey);
-        mockUSDC.mint(deployer, creationFee);
-        address(mockUSDC).safeApprove(address(factoryOfMarketFactories), creationFee);
-        address trumpFactory = factoryOfMarketFactories.createMarketFactory("Donald Trump", "TRUMP");
         mockUSDC.transferOwnership(admin);
         vm.stopBroadcast();
 
@@ -72,7 +67,6 @@ contract DeployScript is Script {
         console.log("ProtocolFee:", protocolFee);
         console.log("OracleDecimals:", oracleDecimals);
         console.log("FactoryOfMarketFactories:", address(factoryOfMarketFactories));
-        console.log("TrumpMarketFactory:", trumpFactory);
         console.log("Router:", address(router));
         console.log("Lens:", address(lens));
     }

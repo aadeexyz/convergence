@@ -109,7 +109,7 @@ export function OracleHistoryChart({ factoryAddress, oracleDecimals, collateralD
 
 function renderChart(data: DataPoint[]) {
     return (
-        <Card className="ring-0 border border-foreground/10">
+        <Card className="ring-0 border-none bg-muted/40">
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-sm text-muted-foreground">
                     Price Chart
