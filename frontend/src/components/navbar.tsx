@@ -12,8 +12,11 @@ export function Navbar() {
                             <Logo size={40} />
                         </Link>
 
-                        <div className="flex items-center gap-5">
-                            <ConnectWalletButton className="min-w-[150px]" />
+                        <div className="flex items-center gap-3 md:gap-5">
+                            <Link href="/faucet" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                                Faucet
+                            </Link>
+                            <ConnectWalletButton className="min-w-30 md:min-w-37.5" />
                         </div>
                     </div>
                 </div>

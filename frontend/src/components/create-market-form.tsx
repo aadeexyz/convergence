@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { SonnerTxLink } from "@/components/sonner-tx-link";
-import { erc20Abi, factoryOfMarketFactoriesAbi } from "@/lib/abis";
+import { mockUSDCAbi, factoryOfMarketFactoriesAbi } from "@/lib/abis";
 import { MAX_ALLOWANCE } from "@/lib/constants";
 import { factoryOfMarketFactoriesAddress, usdcAddress } from "@/lib/metadata";
 
@@ -31,7 +31,7 @@ export function CreateMarketForm() {
     // --- Read USDC balance ---
     const { data: usdcBalance } = useReadContract({
         address: usdcAddress,
-        abi: erc20Abi,
+        abi: mockUSDCAbi,
         functionName: "balanceOf",
         args: userAddress ? [userAddress] : undefined,
         query: { enabled: !!userAddress },
@@ -40,7 +40,7 @@ export function CreateMarketForm() {
     // --- Read allowance ---
     const { data: allowance } = useReadContract({
         address: usdcAddress,
-        abi: erc20Abi,
+        abi: mockUSDCAbi,
         functionName: "allowance",
         args: userAddress ? [userAddress, factoryOfMarketFactoriesAddress] : undefined,
         query: { enabled: !!userAddress },
@@ -124,7 +124,7 @@ export function CreateMarketForm() {
     function handleApprove() {
         approveUsdc.mutate({
             address: usdcAddress,
-            abi: erc20Abi,
+            abi: mockUSDCAbi,
             functionName: "approve",
             args: [factoryOfMarketFactoriesAddress, maxUint256],
         });

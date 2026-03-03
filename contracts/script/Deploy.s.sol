@@ -16,7 +16,6 @@ contract DeployScript is Script {
     uint256 deployerPrivateKey;
 
     address deployer;
-    address admin;
     address forwarderAddress;
 
     uint256 liquidityFee;
@@ -32,7 +31,6 @@ contract DeployScript is Script {
 
     function run() external {
         deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        admin = vm.envAddress("ADMIN_ADDRESS");
         forwarderAddress = vm.envAddress("FORWARDER_ADDRESS");
         oracleDecimals = uint8(vm.envUint("ORACLE_DECIMALS"));
         liquidityFeeUnit = vm.envUint("LIQUIDITY_FEE_UNIT");
@@ -49,18 +47,13 @@ contract DeployScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
         factoryOfMarketFactories = new FactoryOfMarketFactories(
-            address(mockUSDC), liquidityFee, protocolFee, forwarderAddress, oracleDecimals, admin
+            address(mockUSDC), liquidityFee, protocolFee, forwarderAddress, oracleDecimals, deployer
         );
         router = new Router();
         lens = new Lens();
         vm.stopBroadcast();
 
-        vm.startBroadcast(deployerPrivateKey);
-        mockUSDC.transferOwnership(admin);
-        vm.stopBroadcast();
-
         console.log("Deployer:", deployer);
-        console.log("Admin:", admin);
         console.log("MockUSDC:", address(mockUSDC));
         console.log("ForwarderAddress:", forwarderAddress);
         console.log("LiquidityFee:", liquidityFee);

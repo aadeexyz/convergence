@@ -4,31 +4,18 @@ import { useEffect } from "react";
 import { useWriteContract, useTransactionReceipt, useAccount } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { parseUnits } from "viem";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { SonnerTxLink } from "@/components/sonner-tx-link";
+import { mockUSDCAbi } from "@/lib/abis";
 import { usdcAddress } from "@/lib/metadata";
-
-const MINT_AMOUNT = parseUnits("100", 6); // 100 USDC
-
-const mockUsdcMintAbi = [
-    {
-        type: "function",
-        name: "mint",
-        inputs: [
-            { name: "to_", type: "address", internalType: "address" },
-            { name: "amount_", type: "uint256", internalType: "uint256" },
-        ],
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-] as const;
+import { useMintAllowed } from "@/hooks/use-mint-allowed";
 
 export function FaucetCard() {
     const { address, isConnected } = useAccount();
     const queryClient = useQueryClient();
+    const { mintAllowed, timeLeft, isLoading: isMintAllowedLoading } = useMintAllowed(usdcAddress, address);
 
     const mint = useWriteContract({
         mutation: {
@@ -36,7 +23,7 @@ export function FaucetCard() {
                 toast.error("Failed to submit transaction");
             },
             onSuccess(data) {
-                toast.loading("Minting 100 USDC…", {
+                toast.loading("Minting USDC…", {
                     description: <SonnerTxLink txHash={data} />,
                     id: data,
                 });
@@ -48,7 +35,7 @@ export function FaucetCard() {
     useEffect(() => {
         if (mintReceipt.status === "success") {
             queryClient.invalidateQueries();
-            toast.success("100 USDC minted!", {
+            toast.success("USDC minted!", {
                 description: <SonnerTxLink txHash={mint.data} />,
                 id: mint.data,
             });
@@ -62,12 +49,10 @@ export function FaucetCard() {
     }, [mintReceipt.status]);
 
     function handleMint() {
-        if (!address) return;
         mint.mutate({
             address: usdcAddress,
-            abi: mockUsdcMintAbi,
+            abi: mockUSDCAbi,
             functionName: "mint",
-            args: [address, MINT_AMOUNT],
         });
     }
 
@@ -75,22 +60,30 @@ export function FaucetCard() {
         mint.isPending || (mintReceipt.status === "pending" && !!mint.data);
 
     return (
-        <Card className="mx-auto max-w-sm ring-0 border border-foreground/10">
+        <Card className="mx-auto max-w-sm ring-0 border-none bg-muted/40">
             <CardHeader>
-                <CardTitle className="text-center">USDC Faucet</CardTitle>
+                <CardTitle>USDC Faucet</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-                <p className="text-sm text-center text-muted-foreground">
-                    Mint 100 USDC to your wallet for testing.
+            <CardContent>
+                <p className="text-sm text-muted-foreground">
+                    100 USDC · once every 24h
                 </p>
+            </CardContent>
+            <CardFooter className="bg-transparent border-t-0">
                 <Button
                     className="w-full"
-                    disabled={!isConnected || isPending}
+                    disabled={!isConnected || isPending || isMintAllowedLoading || !mintAllowed}
                     onClick={handleMint}
                 >
-                    {isPending ? <Spinner /> : "Mint 100 USDC"}
+                    {isPending || isMintAllowedLoading ? (
+                        <Spinner />
+                    ) : !mintAllowed && timeLeft ? (
+                        `${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`
+                    ) : (
+                        "Mint USDC"
+                    )}
                 </Button>
-            </CardContent>
+            </CardFooter>
         </Card>
     );
 }

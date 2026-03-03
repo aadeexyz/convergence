@@ -17,7 +17,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { SonnerTxLink } from "@/components/sonner-tx-link";
 import { useMarketFactory } from "@/hooks/use-market-factory";
 import { useLatestMarket } from "@/hooks/use-latest-market";
-import { erc20Abi, routerAbi } from "@/lib/abis";
+import { mockUSDCAbi, routerAbi, marketAbi } from "@/lib/abis";
 import { routerAddress } from "@/lib/metadata";
 import { cn } from "@/lib/utils";
 import { MAX_ALLOWANCE } from "@/lib/constants";
@@ -43,7 +43,7 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
     // --- Read allowances ---
     const { data: collateralAllowance } = useReadContract({
         address: factory?.collateralToken,
-        abi: erc20Abi,
+        abi: mockUSDCAbi,
         functionName: "allowance",
         args: userAddress && factory ? [userAddress, routerAddress] : undefined,
         query: { enabled: !!userAddress && !!factory },
@@ -55,18 +55,10 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
             : market.shortPositionToken
         : undefined;
 
-    const { data: positionAllowance } = useReadContract({
-        address: positionTokenAddress,
-        abi: erc20Abi,
-        functionName: "allowance",
-        args: userAddress && positionTokenAddress ? [userAddress, routerAddress] : undefined,
-        query: { enabled: !!userAddress && !!positionTokenAddress },
-    });
-
     // --- Read balances ---
     const { data: collateralBalance } = useReadContract({
         address: factory?.collateralToken,
-        abi: erc20Abi,
+        abi: mockUSDCAbi,
         functionName: "balanceOf",
         args: userAddress ? [userAddress] : undefined,
         query: { enabled: !!userAddress && !!factory },
@@ -74,7 +66,7 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
 
     const { data: positionBalance } = useReadContract({
         address: positionTokenAddress,
-        abi: erc20Abi,
+        abi: mockUSDCAbi,
         functionName: "balanceOf",
         args: userAddress ? [userAddress] : undefined,
         query: { enabled: !!userAddress && !!positionTokenAddress },
@@ -146,24 +138,7 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mintReceipt.status]);
 
-    // --- Sell flow: approve position token then burn ---
-    const approvePosition = useWriteContract({
-        mutation: {
-            onError() {
-                toast.error("Approval failed");
-            },
-            onSuccess(data) {
-                toast.loading("Approving position token…", {
-                    description: <SonnerTxLink txHash={data} />,
-                    id: `approve-${data}`,
-                });
-            },
-        },
-    });
-    const approvePositionReceipt = useTransactionReceipt({
-        hash: approvePosition.data,
-    });
-
+    // --- Sell flow: call market.burn directly (no approval needed) ---
     const burnPosition = useWriteContract({
         mutation: {
             onError() {
@@ -178,21 +153,6 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
         },
     });
     const burnReceipt = useTransactionReceipt({ hash: burnPosition.data });
-
-    // When position token approval succeeds, refresh allowance so UI switches to Trade button
-    useEffect(() => {
-        if (approvePositionReceipt.status === "success") {
-            queryClient.invalidateQueries();
-            toast.success("Position token approved", {
-                id: `approve-${approvePosition.data}`,
-            });
-        } else if (approvePositionReceipt.status === "error") {
-            toast.error("Approval failed", {
-                id: `approve-${approvePosition.data}`,
-            });
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [approvePositionReceipt.status]);
 
     // When burn succeeds, invalidate queries
     useEffect(() => {
@@ -216,15 +176,13 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
     const needsCollateralApproval =
         collateralAllowance === undefined || (collateralAllowance as bigint) < MAX_ALLOWANCE;
 
-    const needsPositionApproval =
-        positionAllowance === undefined || (positionAllowance as bigint) < MAX_ALLOWANCE;
 
     // --- Handlers ---
     function handleApproveCollateral() {
         if (!factory) return;
         approveCollateral.mutate({
             address: factory.collateralToken,
-            abi: erc20Abi,
+            abi: mockUSDCAbi,
             functionName: "approve",
             args: [routerAddress, maxUint256],
         });
@@ -244,35 +202,23 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
         });
     }
 
-    function handleApprovePosition() {
-        if (!positionTokenAddress) return;
-        approvePosition.mutate({
-            address: positionTokenAddress,
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [routerAddress, maxUint256],
-        });
-    }
-
     function handleSell() {
-        if (!market || !shares) return;
+        if (!market || !shares || !userAddress) return;
         const decimals = market.decimals;
         const parsedShares = parseUnits(shares, decimals);
         const isLong = outcome === "long";
 
         burnPosition.mutate({
-            address: routerAddress,
-            abi: routerAbi,
+            address: market.market,
+            abi: marketAbi,
             functionName: "burn",
-            args: [factoryAddress, isLong, parsedShares],
+            args: [isLong, parsedShares, userAddress],
         });
     }
 
     const isApproving =
         approveCollateral.isPending ||
-        (approveCollateralReceipt.status === "pending" && !!approveCollateral.data) ||
-        approvePosition.isPending ||
-        (approvePositionReceipt.status === "pending" && !!approvePosition.data);
+        (approveCollateralReceipt.status === "pending" && !!approveCollateral.data);
 
     const isBuying =
         mintPosition.isPending ||
@@ -505,23 +451,13 @@ export function TradePanel({ factoryAddress }: TradePanelProps) {
                         </div>
 
                         {/* Trade button */}
-                        {needsPositionApproval ? (
-                            <Button
-                                className="w-full"
-                                disabled={!isConnected || isApproving}
-                                onClick={handleApprovePosition}
-                            >
-                                {isApproving ? <Spinner /> : "Approve Position Token"}
-                            </Button>
-                        ) : (
-                            <Button
-                                className="w-full"
-                                disabled={!isConnected || !shares || isSelling || (positionBalance !== undefined && !!market && (positionBalance as bigint) < parseUnits(shares || "0", market.decimals))}
-                                onClick={handleSell}
-                            >
-                                {isSelling ? <Spinner /> : "Trade"}
-                            </Button>
-                        )}
+                        <Button
+                            className="w-full"
+                            disabled={!isConnected || !shares || isSelling || (positionBalance !== undefined && !!market && (positionBalance as bigint) < parseUnits(shares || "0", market.decimals))}
+                            onClick={handleSell}
+                        >
+                            {isSelling ? <Spinner /> : "Trade"}
+                        </Button>
                     </TabsContent>
                 </Tabs>
             </CardContent>
