@@ -14,3 +14,9 @@ create-market:
 
 create-market-broadcast:
 	. .env && forge script script/CreateMarket.s.sol:CreateMarketScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v --broadcast
+
+admin-mint:
+	. .env && forge script script/AdminMint.s.sol:AdminMintScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v
+
+admin-mint-broadcast:
+	. .env && forge script script/AdminMint.s.sol:AdminMintScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v --broadcast

@@ -52,6 +52,15 @@ interface ILens {
         uint256 redeemableCollateral;
     }
 
+    struct WorkflowFactoryData {
+        address factory;
+        string name;
+        address oracle;
+        address latestMarket;
+        uint256 collateralBalance;
+        uint256[] rollingEMAWindow;
+    }
+
     /*//////////////////////////////////////////////////////////////
                              VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -106,4 +115,13 @@ interface ILens {
     /// @param factory_ The market factory address
     /// @param count_ Max number of most recent snapshots to return (0 = all)
     function getMarkPriceHistory(address factory_, uint256 count_) external view returns (IMarket.PriceSnapshot[] memory);
+
+    /// @notice Returns all workflow-relevant data for every factory in a single call
+    /// @param fof_ The FactoryOfMarketFactories address
+    /// @return collateralToken The collateral token address
+    /// @return factories Array of per-factory workflow data
+    function getWorkflowData(address fof_)
+        external
+        view
+        returns (address collateralToken, WorkflowFactoryData[] memory factories);
 }

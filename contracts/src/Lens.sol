@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {FixedPointMathLib} from "solady/utils/FixedPointMathLib.sol";
+import {IFactoryOfMarketFactories} from "src/interfaces/IFactoryOfMarketFactories.sol";
 import {ILens} from "src/interfaces/ILens.sol";
 import {IMarketFactory} from "src/interfaces/IMarketFactory.sol";
 import {IMarket} from "src/interfaces/IMarket.sol";
@@ -219,6 +220,37 @@ contract Lens is ILens {
             result[i] = all[start + i];
         }
         return result;
+    }
+
+    /// @inheritdoc ILens
+    function getWorkflowData(address fof_)
+        external
+        view
+        override
+        returns (address collateralToken, WorkflowFactoryData[] memory factories)
+    {
+        IFactoryOfMarketFactories fof = IFactoryOfMarketFactories(fof_);
+        collateralToken = fof.collateralToken();
+        address[] memory addrs = fof.marketFactories();
+        factories = new WorkflowFactoryData[](addrs.length);
+
+        for (uint256 i = 0; i < addrs.length; i++) {
+            IMarketFactory f = IMarketFactory(addrs[i]);
+            address oracle = f.oracle();
+            address latestMarket = f.latestMarket();
+
+            address balanceAccount = latestMarket == address(0) ? addrs[i] : latestMarket;
+            uint256 balance = IERC20(collateralToken).balanceOf(balanceAccount);
+
+            factories[i] = WorkflowFactoryData({
+                factory: addrs[i],
+                name: f.name(),
+                oracle: oracle,
+                latestMarket: latestMarket,
+                collateralBalance: balance,
+                rollingEMAWindow: IOracle(oracle).rollingEMAWindow()
+            });
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
