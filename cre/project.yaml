@@ -27,7 +27,7 @@
 staging-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia-base-1
-      url: http://127.0.0.1:8545
+      url: https://base-sepolia.g.alchemy.com/v2/HYVxQGfflj0k5Nc2ykkX7
 
 # ==========================================================================
 production-settings:
