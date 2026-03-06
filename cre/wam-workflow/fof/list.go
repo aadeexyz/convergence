@@ -14,6 +14,7 @@ import (
 type FoFConfig struct {
 	ContractAddress string `json:"contractAddress"`
 	ChainName       string `json:"chainName"`
+	LensAddress     string `json:"lensAddress"`
 }
 
 func GetCollateralToken(config *FoFConfig, runtime cre.Runtime) (common.Address, error) {

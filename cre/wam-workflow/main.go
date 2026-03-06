@@ -9,6 +9,7 @@ import (
 	"math/big"
 
 	"cre-workflow/wam-workflow/fof"
+	"cre-workflow/wam-workflow/lens"
 	"cre-workflow/wam-workflow/mf"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,6 @@ type ExecutionResult struct {
 	Result string
 }
 
-// Workflow configuration loaded from the config.json file
 type Config struct {
 	FoF                 fof.FoFConfig `json:"fof"`
 	Schedule            string        `json:"schedule"`
@@ -36,11 +36,9 @@ type Config struct {
 	TwitterPageDelaySec int           `json:"twitterPageDelaySec"`
 }
 
-// Workflow implementation with a list of capability triggers
 func InitWorkflow(config *Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[*Config], error) {
 	cronTrigger := cron.Trigger(&cron.Config{Schedule: config.Schedule})
 
-	// Set up log trigger for MarketFactoryCreated events
 	chainSelector, err := evm.ChainSelectorFromName(config.FoF.ChainName)
 	if err != nil {
 		return nil, fmt.Errorf("invalid chain name: %w", err)
@@ -66,7 +64,6 @@ func InitWorkflow(config *Config, logger *slog.Logger, secretsProvider cre.Secre
 	}, nil
 }
 
-// fetchAPIKeys retrieves API keys from secrets (non-fatal if missing)
 func fetchAPIKeys(runtime cre.Runtime) (googleKey, twitterKey, serpKey string) {
 	logger := runtime.Logger()
 
@@ -91,61 +88,26 @@ func fetchAPIKeys(runtime cre.Runtime) (googleKey, twitterKey, serpKey string) {
 	return
 }
 
-// processFactory computes and submits the attention index for a single factory.
-// When settlement is true, the report goes to MarketFactory (settle + seed + oracle update).
-// When settlement is false, the report goes directly to the Oracle (oracle-only update).
 // Returns: "settled", "updated", "skipped", or an error.
-func processFactory(
+func processFactoryFromData(
 	config *Config,
 	runtime cre.Runtime,
-	factoryAddr common.Address,
-	collateralToken common.Address,
+	fd lens.WorkflowFactoryData,
 	settlement bool,
 	googleKey, twitterKey, serpKey string,
 ) (string, error) {
-	log := runtime.Logger().With("factory", factoryAddr.Hex(), "settlement", settlement)
+	log := runtime.Logger().With("factory", fd.Factory.Hex(), "settlement", settlement)
 	scale := math.Pow(10, oracleDecimals)
 
-	// Check collateral balance: look at the latest market (where collateral lives during active trading)
-	latestMarket, err := mf.GetLatestMarket(runtime, config.FoF.ChainName, factoryAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to read latest market: %w", err)
-	}
-
-	// Check factory balance first, then fall back to latest market balance
-	balanceAccount := factoryAddr
-	if latestMarket != (common.Address{}) {
-		balanceAccount = latestMarket
-	}
-	balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, balanceAccount)
-	if err != nil {
-		return "", fmt.Errorf("failed to read balance: %w", err)
-	}
-	log.Info("Balance check", "account", balanceAccount.Hex(), "balance", balance.String())
-	if balance.Sign() == 0 {
+	log.Info("Balance check", "balance", fd.CollateralBalance.String())
+	if fd.CollateralBalance.Sign() == 0 {
 		log.Info("Zero balance, skipping")
 		return "skipped", nil
 	}
 
-	// Read the factory's keyword (its name)
-	keyword, err := mf.GetFactoryName(runtime, config.FoF.ChainName, factoryAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to read factory name: %w", err)
-	}
+	keyword := fd.Name
 	log = log.With("keyword", keyword)
 
-	// Read oracle address and rolling EMA window
-	oracleAddr, err := mf.GetOracleAddress(runtime, config.FoF.ChainName, factoryAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to read oracle address: %w", err)
-	}
-
-	emaWindow, err := mf.GetRollingEMAWindow(runtime, config.FoF.ChainName, oracleAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to read EMA window: %w", err)
-	}
-
-	// Compute attention scores for this keyword
 	scores, err := GetRawIndex(keyword, runtime, googleKey, twitterKey, serpKey, config.TwitterPageDelaySec)
 	if err != nil {
 		return "", fmt.Errorf("failed to compute attention scores: %w", err)
@@ -158,14 +120,12 @@ func processFactory(
 		"rawIndex", scores.RawIndex,
 	)
 
-	// Sigmoid → scale to 8 decimals
 	rawIndex := scores.RawIndex
 	normalized := Sigmoid(rawIndex)
 	scaledIndex := new(big.Int).SetUint64(uint64(normalized * scale))
 
-	// Compute EMA using median of non-zero on-chain values as previous EMA
 	var scaledEMA *big.Int
-	medianEMA := MedianNonZero(emaWindow)
+	medianEMA := MedianNonZero(fd.RollingEMAWindow)
 	if medianEMA != nil {
 		prevEMAFloat := float64(medianEMA.Uint64()) / scale
 		emaFloat := EMA(normalized, &prevEMAFloat)
@@ -183,8 +143,8 @@ func processFactory(
 	)
 
 	if settlement {
-		// Push to MarketFactory: oracle update + settle old market + seed new market
-		err = mf.SubmitAttentionIndex(runtime, config.FoF.ChainName, factoryAddr, scaledIndex, scaledEMA, config.GasLimit)
+
+		err = mf.SubmitAttentionIndex(runtime, config.FoF.ChainName, fd.Factory, scaledIndex, scaledEMA, config.GasLimit)
 		if err != nil {
 			return "", fmt.Errorf("failed to submit settlement report: %w", err)
 		}
@@ -192,13 +152,64 @@ func processFactory(
 		return "settled", nil
 	}
 
-	// Push directly to Oracle: oracle-only update
-	err = mf.SubmitOracleIndex(runtime, config.FoF.ChainName, oracleAddr, scaledIndex, scaledEMA, config.GasLimit)
+	err = mf.SubmitOracleIndex(runtime, config.FoF.ChainName, fd.Oracle, scaledIndex, scaledEMA, config.GasLimit)
 	if err != nil {
 		return "", fmt.Errorf("failed to submit oracle report: %w", err)
 	}
 	log.Info("Oracle report submitted")
 	return "updated", nil
+}
+
+func processFactory(
+	config *Config,
+	runtime cre.Runtime,
+	factoryAddr common.Address,
+	collateralToken common.Address,
+	settlement bool,
+	googleKey, twitterKey, serpKey string,
+) (string, error) {
+	log := runtime.Logger().With("factory", factoryAddr.Hex(), "settlement", settlement)
+
+	latestMarket, err := mf.GetLatestMarket(runtime, config.FoF.ChainName, factoryAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read latest market: %w", err)
+	}
+
+	balanceAccount := factoryAddr
+	if latestMarket != (common.Address{}) {
+		balanceAccount = latestMarket
+	}
+	balance, err := mf.GetCollateralBalance(runtime, config.FoF.ChainName, collateralToken, balanceAccount)
+	if err != nil {
+		return "", fmt.Errorf("failed to read balance: %w", err)
+	}
+
+	keyword, err := mf.GetFactoryName(runtime, config.FoF.ChainName, factoryAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read factory name: %w", err)
+	}
+
+	oracleAddr, err := mf.GetOracleAddress(runtime, config.FoF.ChainName, factoryAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read oracle address: %w", err)
+	}
+
+	emaWindow, err := mf.GetRollingEMAWindow(runtime, config.FoF.ChainName, oracleAddr)
+	if err != nil {
+		return "", fmt.Errorf("failed to read EMA window: %w", err)
+	}
+
+	fd := lens.WorkflowFactoryData{
+		Factory:           factoryAddr,
+		Name:              keyword,
+		Oracle:            oracleAddr,
+		LatestMarket:      latestMarket,
+		CollateralBalance: balance,
+		RollingEMAWindow:  emaWindow,
+	}
+
+	log.Info("Individual reads complete", "keyword", keyword, "oracle", oracleAddr.Hex())
+	return processFactoryFromData(config, runtime, fd, settlement, googleKey, twitterKey, serpKey)
 }
 
 func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (*ExecutionResult, error) {
@@ -208,47 +219,42 @@ func onCronTrigger(config *Config, runtime cre.Runtime, trigger *cron.Payload) (
 
 	googleKey, twitterKey, serpKey := fetchAPIKeys(runtime)
 
-	collateralToken, err := fof.GetCollateralToken(&config.FoF, runtime)
+	lensAddr := common.HexToAddress(config.FoF.LensAddress)
+	fofAddr := common.HexToAddress(config.FoF.ContractAddress)
+	workflowData, err := lens.GetWorkflowData(runtime, config.FoF.ChainName, lensAddr, fofAddr).Await()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read collateral token: %w", err)
+		return nil, fmt.Errorf("failed to batch read workflow data: %w", err)
 	}
 
-	factories, err := fof.GetMarketFactories(&config.FoF, runtime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read market factories: %w", err)
-	}
-
-	if len(factories) == 0 {
+	n := len(workflowData.Factories)
+	if n == 0 {
 		return &ExecutionResult{Result: "No market factories found"}, nil
 	}
 
-	// Settle at midnight UTC; oracle-only update otherwise
-	settlement := scheduledTime.UTC().Hour() == 0
-	settlement = true // testing only
-	logger.Info("Settlement check", "utcHour", scheduledTime.UTC().Hour(), "settlement", settlement)
+	logger.Info("Batch read complete",
+		"collateralToken", workflowData.CollateralToken.Hex(),
+		"factoryCount", n,
+	)
 
-	var settled, updated, skipped, failed int
+	const cronIntervalSec = 30 * 60 // 30 minutes
+	slot := scheduledTime.Unix() / cronIntervalSec
+	idx := int(slot % int64(n))
+	fd := workflowData.Factories[idx]
 
-	for _, factoryAddr := range factories {
+	logger.Info("Round-robin selection",
+		"slot", slot,
+		"index", idx,
+		"factory", fd.Factory.Hex(),
+		"keyword", fd.Name,
+	)
 
-		status, err := processFactory(config, runtime, factoryAddr, collateralToken, settlement, googleKey, twitterKey, serpKey)
-		if err != nil {
-			logger.Error("Factory processing failed, skipping", "factory", factoryAddr.Hex(), "error", err)
-			failed++
-			continue
-		}
-		switch status {
-		case "settled":
-			settled++
-		case "updated":
-			updated++
-		case "skipped":
-			skipped++
-		}
+	status, err := processFactoryFromData(config, runtime, fd, true, googleKey, twitterKey, serpKey)
+	if err != nil {
+		return nil, fmt.Errorf("factory %s failed: %w", fd.Factory.Hex(), err)
 	}
 
-	result := fmt.Sprintf("%d settled, %d updated, %d skipped, %d failed out of %d factories",
-		settled, updated, skipped, failed, len(factories))
+	result := fmt.Sprintf("Factory %s (%s): %s [slot %d, index %d/%d]",
+		fd.Factory.Hex(), fd.Name, status, slot, idx, n)
 	logger.Info(result)
 
 	return &ExecutionResult{Result: result}, nil
@@ -270,7 +276,6 @@ func onFactoryCreated(config *Config, runtime cre.Runtime, trigger *bindings.Dec
 		return nil, fmt.Errorf("failed to read collateral token: %w", err)
 	}
 
-	// New factory always gets a settlement report (first market creation)
 	status, err := processFactory(config, runtime, factoryAddr, collateralToken, true, googleKey, twitterKey, serpKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process new factory %s: %w", factoryAddr.Hex(), err)

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useMarketFactory } from "@/hooks/use-market-factory";
 import { useLatestMarket } from "@/hooks/use-latest-market";
+import { useOracle } from "@/hooks/use-oracle";
 import { useSettlementCountdown } from "@/hooks/use-settlement-countdown";
 import { cn } from "@/lib/utils";
 import { formatUnits } from "viem";
@@ -10,14 +11,17 @@ import type { Address } from "viem";
 
 type MarketFactoryCardProps = {
     marketFactoryAddress: Address;
+    totalFactories: number;
 };
 
 export function MarketFactoryCard({
     marketFactoryAddress,
+    totalFactories,
 }: MarketFactoryCardProps) {
     const { factory } = useMarketFactory(marketFactoryAddress);
     const { market } = useLatestMarket(marketFactoryAddress);
-    const countdown = useSettlementCountdown();
+    const { oracle } = useOracle(marketFactoryAddress);
+    const countdown = useSettlementCountdown(oracle?.latestRound?.timestamp, totalFactories);
 
     const longPrice = market ? Number(formatUnits(market.longPrice, 6)) : 0;
     const longPct = Math.round(longPrice * 100);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLatestMarket } from "@/hooks/use-latest-market";
+import { useMarketFactory } from "@/hooks/use-market-factory";
+import { useMarketFactories } from "@/hooks/use-market-factories";
 import { useOracle } from "@/hooks/use-oracle";
 import { useSettlementCountdown } from "@/hooks/use-settlement-countdown";
 import { formatUnits } from "viem";
@@ -14,14 +15,10 @@ type MarketStatsProps = {
 
 export function MarketStats({ factoryAddress }: MarketStatsProps) {
     const { market } = useLatestMarket(factoryAddress);
+    const { factory } = useMarketFactory(factoryAddress);
     const { oracle } = useOracle(factoryAddress);
-    const countdown = useSettlementCountdown();
-    const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
-
-    useEffect(() => {
-        const interval = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
-        return () => clearInterval(interval);
-    }, []);
+    const { factories } = useMarketFactories();
+    const countdown = useSettlementCountdown(oracle?.latestRound?.timestamp, factories.length);
 
     const tvl = market ? Number(formatUnits(market.totalLiquidity, 6)) : 0;
     const oracleIndex = oracle?.latestRound
@@ -44,18 +41,19 @@ export function MarketStats({ factoryAddress }: MarketStatsProps) {
                     </div>
                     <div className="flex justify-between">
                         <dt className="text-muted-foreground">
-                            Index Updated
+                            Next Settlement
+                        </dt>
+                        <dd>{countdown}</dd>
+                    </div>
+                    <div className="flex justify-between">
+                        <dt className="text-muted-foreground">
+                            Market
                         </dt>
                         <dd>
-                            {oracle?.latestRound?.timestamp
-                                ? (() => {
-                                      const secs = now - Number(oracle.latestRound.timestamp);
-                                      if (secs < 60) return `${secs}s ago`;
-                                      if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-                                      if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-                                      return `${Math.floor(secs / 86400)}d ago`;
-                                  })()
-                                : "—"}
+                            #{factory ? Number(factory.totalMarkets) : "—"}
+                            {market?.settled && (
+                                <span className="ml-1.5 text-xs text-amber-500">settled</span>
+                            )}
                         </dd>
                     </div>
                     <div className="flex justify-between">
@@ -66,9 +64,9 @@ export function MarketStats({ factoryAddress }: MarketStatsProps) {
                     </div>
                     <div className="flex justify-between">
                         <dt className="text-muted-foreground">
-                            Settlement
+                            Oracle Rounds
                         </dt>
-                        <dd>{countdown}</dd>
+                        <dd>{oracle ? Number(oracle.currentRoundId) : "—"}</dd>
                     </div>
                 </dl>
             </CardContent>

@@ -1,7 +1,8 @@
 {
   "fof": {
     "contractAddress": "0xC36E784E1dff616bDae4EAc7B310F0934FaF04a4",
-    "chainName": "ethereum-testnet-sepolia-base-1"
+    "chainName": "ethereum-testnet-sepolia-base-1",
+    "lensAddress": "0xfd1B77d527fE1d7daE077ba1D7BC0153fC473F4a"
   },
   "schedule": "*/30 * * * * *",
   "gasLimit": 2000000,

@@ -15,6 +15,7 @@ export function MarketFactories() {
                 <MarketFactoryCard
                     key={factory}
                     marketFactoryAddress={factory}
+                    totalFactories={factories.length}
                 />
             ))}
         </div>

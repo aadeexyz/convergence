@@ -1,9 +1,10 @@
 {
   "fof": {
-    "contractAddress": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
-    "chainName": "ethereum-testnet-sepolia-base-1"
+    "contractAddress": "0x49ea2E18816cDbdCd011cBF0401d0C8821a8b474",
+    "chainName": "ethereum-testnet-sepolia-base-1",
+    "lensAddress": "0xfd1B77d527fE1d7daE077ba1D7BC0153fC473F4a"
   },
-  "schedule": "0 */8 * * *",
+  "schedule": "*/30 * * * *",
   "gasLimit": 2000000,
-  "twitterPageDelaySec": 5
+  "twitterPageDelaySec": 2
 }

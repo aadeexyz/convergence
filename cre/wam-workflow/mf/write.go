@@ -70,7 +70,6 @@ func SubmitAttentionIndex(
 		return fmt.Errorf("failed to generate report: %w", err)
 	}
 
-	// Submit report to MarketFactory's onReport → _processReport
 	gasConfig := &evm.GasConfig{GasLimit: gasLimit}
 	resp, err := contract.WriteReport(runtime, report, gasConfig).Await()
 	if err != nil {
