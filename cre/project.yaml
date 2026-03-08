@@ -33,6 +33,6 @@ staging-settings:
 production-settings:
   rpcs:
     - chain-name: ethereum-mainnet
-      url: https://eth-mainnet.g.alchemy.com/v2/public
+      url: https://eth.drpc.org
     - chain-name: ethereum-testnet-sepolia-base-1
-      url: hhttps://virtual.base-sepolia.eu.rpc.tenderly.co/05dc5b27-4ec0-4bd2-971b-dd0e1d6c689e
+      url: https://sepolia.base.org
