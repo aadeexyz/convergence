@@ -27,12 +27,12 @@
 staging-settings:
   rpcs:
     - chain-name: ethereum-testnet-sepolia-base-1
-      url: https://base-sepolia.g.alchemy.com/v2/HYVxQGfflj0k5Nc2ykkX7
+      url: http://127.0.0.1:8545
 
 # ==========================================================================
 production-settings:
   rpcs:
     - chain-name: ethereum-mainnet
-      url: https://eth-mainnet.g.alchemy.com/v2/HYVxQGfflj0k5Nc2ykkX7
+      url: https://eth-mainnet.g.alchemy.com/v2/public
     - chain-name: ethereum-testnet-sepolia-base-1
-      url: https://base-sepolia.g.alchemy.com/v2/HYVxQGfflj0k5Nc2ykkX7
+      url: hhttps://virtual.base-sepolia.eu.rpc.tenderly.co/05dc5b27-4ec0-4bd2-971b-dd0e1d6c689e

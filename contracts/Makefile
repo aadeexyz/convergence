@@ -7,7 +7,7 @@ deploy-broadcast:
 	. .env && forge script script/Deploy.s.sol:DeployScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v --broadcast
 
 verify:
-	. .env && forge script script/Deploy.s.sol:DeployScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v --broadcast --resume --verify --verifier etherscan --etherscan-api-key $$BASESCAN_API_KEY
+	. .env && forge script script/Deploy.s.sol:DeployScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v --broadcast --resume --verify --verifier custom
 
 create-market:
 	. .env && forge script script/CreateMarket.s.sol:CreateMarketScript --rpc-url $$RPC_URL --private-keys $$DEPLOYER_PRIVATE_KEY -v

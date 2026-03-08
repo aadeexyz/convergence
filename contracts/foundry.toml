@@ -7,3 +7,6 @@ optimizer_runs = 10
 via_ir = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[etherscan]
+unknown_chain = { key = "TENDERLY_ACCESS_TOKEN", chain = 99984532, url = "${VERIFIER_URL}" }
