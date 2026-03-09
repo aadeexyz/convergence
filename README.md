@@ -60,13 +60,25 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 
 ## Market Lifecycle
 
-1. A user creates a `MarketFactory` for a keyword.
-2. The factory deploys its own `Oracle`.
-3. The CRE workflow fetches external attention signals for that keyword.
-4. The workflow computes the current Attention Index and EMA.
-5. CRE writes the report onchain.
-6. The `MarketFactory` settles the previous market and seeds the next one.
-7. Users trade long and short position tokens against the active collateral pool.
+The system has an initial creation flow and a recurring update flow.
+
+### Initial creation
+
+1. A user calls `FactoryOfMarketFactories.createMarketFactory(name, symbol)`.
+2. The factory-of-factories deploys a new `MarketFactory` clone for that keyword and transfers the creation liquidity into it.
+3. The new `MarketFactory` initializes its own `Oracle` clone and enters a pre-live state, waiting for its first workflow report.
+4. The CRE workflow detects the new factory, fetches external attention signals for the keyword, computes the Attention Index and EMA, and submits that report onchain.
+5. The `MarketFactory` receives the report, stores the new oracle round, creates the first `Market`, and seeds its long and short collateral pools using the factory’s deposited liquidity.
+6. The market is now live and users can mint or burn long and short position tokens against the active pool.
+
+### Recurring updates
+
+1. On each scheduled workflow run, CRE reads the latest onchain state for a factory and fetches fresh offchain attention data for the same keyword.
+2. The workflow recomputes the latest Attention Index and EMA, then generates and submits a new signed report onchain.
+3. When `MarketFactory` processes that report, it first updates the `Oracle` with the new round.
+4. If a previous market is active, the factory settles it against the new oracle round and redeems the remaining long and short collateral back into the factory.
+5. The factory then creates a fresh market and reseeds it using the recycled collateral balance, split between long and short according to the new index value.
+6. Users continue trading on the new active market until the next workflow update rolls the system forward again.
 
 ## Repo Layout
 
