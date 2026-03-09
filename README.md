@@ -71,7 +71,6 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 ## Repo Layout
 
 ```text
-.
 ├── contracts/   Foundry project
 ├── frontend/    Next.js 16
 ├── cre/         Go-based Chainlink CRE workflow
