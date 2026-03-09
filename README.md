@@ -34,12 +34,9 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 
 ### Contracts Consuming CRE Workflow
 
+- [`contracts/src/keystone/ReceiverTemplate.sol`](contracts/src/keystone/ReceiverTemplate.sol)
 - [`contracts/src/MarketFactory.sol`](contracts/src/MarketFactory.sol)
 - [`contracts/src/Oracle.sol`](contracts/src/Oracle.sol)
-- [`contracts/src/keystone/ReceiverTemplate.sol`](contracts/src/keystone/ReceiverTemplate.sol)
-- [`contracts/src/interfaces/IMarketFactory.sol`](contracts/src/interfaces/IMarketFactory.sol)
-- [`contracts/src/interfaces/IOracle.sol`](contracts/src/interfaces/IOracle.sol)
-- [`contracts/src/interfaces/keystone/IReceiver.sol`](contracts/src/interfaces/keystone/IReceiver.sol)
 
 ## Architecture
 
