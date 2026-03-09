@@ -21,9 +21,6 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 
 ### Files Using CRE
 
-- [`cre/wam-workflow/workflow.yaml`](cre/wam-workflow/workflow.yaml)
-- [`cre/wam-workflow/config.staging.json`](cre/wam-workflow/config.staging.json)
-- [`cre/wam-workflow/config.production.json`](cre/wam-workflow/config.production.json)
 - [`cre/wam-workflow/main.go`](cre/wam-workflow/main.go)
 - [`cre/wam-workflow/aggregator.go`](cre/wam-workflow/aggregator.go)
 - [`cre/wam-workflow/fof/list.go`](cre/wam-workflow/fof/list.go)
