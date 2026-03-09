@@ -45,7 +45,7 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 - `cre/wam-workflow/main.go`: workflow entrypoint
 - `cre/wam-workflow/aggregator.go`: weighted attention score aggregation
 - `cre/wam-workflow/sourcer/google_trends.go`: Google Trends ingestion
-- `cre/wam-workflow/sourcer/twitter.go`: Twitter/X ingestion
+- `cre/wam-workflow/sourcer/twitter.go`: Twitter ingestion
 - `cre/wam-workflow/sourcer/youtube.go`: YouTube ingestion
 - `cre/wam-workflow/mf/write.go`: report generation and onchain writes through CRE
 
