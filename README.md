@@ -76,6 +76,7 @@ Chainlink CRE is the orchestration layer between those two parts. It runs the wo
 ├── frontend/    Next.js 16
 ├── cre/         Go-based Chainlink CRE workflow
 ├── deployment.txt
+├── LICENSE
 └── README.md
 ```
 
