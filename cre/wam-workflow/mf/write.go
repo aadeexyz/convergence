@@ -59,7 +59,6 @@ func SubmitAttentionIndex(
 		"ema", ema.String(),
 	)
 
-	// Generate signed report via CRE consensus
 	report, err := runtime.GenerateReport(&cre.ReportRequest{
 		EncodedPayload: encodedPayload,
 		EncoderName:    "evm",
